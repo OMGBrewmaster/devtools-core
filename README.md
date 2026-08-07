@@ -7,8 +7,9 @@ own, or if you are working in a project that mounts it as a submodule.
 ## This repository is generated
 
 The contents are published automatically from a private upstream repository on
-every change there. **Nothing here is edited by hand**, and anything committed
-directly is overwritten by the next publish.
+every change there, and republished on a daily schedule so that a publish which
+never ran cannot leave this copy behind indefinitely. **Nothing here is edited by
+hand**, and anything committed directly is overwritten by the next publish.
 
 - **No pull requests.** They cannot be merged — the next publish would discard
   them.
