@@ -187,9 +187,16 @@ typed that value, and silently dropping it is how the field becomes even less tr
 
 ### Focus weighting
 
-- The prose statement raises every candidate whose area or goal serves it, and it
-  outranks inference drawn from bucket placement. The owner saying "this month is the
-  CMS" beats a task sitting in `now/` since March.
+- The prose statement raises every candidate it covers — matched by the one rule in the
+  rubric's [What counts as in focus](../task-reprioritize/ranking-rubric.md#what-counts-as-in-focus),
+  which requires a quotable sentence and carries that quote into the ranking rationale.
+  Do not restate the rule here; both skills read it from there so they cannot drift.
+- **It outranks inference drawn from bucket placement**, including placement that focus
+  itself drove. `/task-reprioritize` weights buckets by focus at each rebalance, so a
+  bucket carries the focus *as it stood then*; this skill reads the focus as it stands
+  now, and the fresher read wins (rubric § Focus weighting). The owner saying "this month
+  is the importer" beats a task sitting in `now/` since March — and beats a task that
+  last month's focus put there.
 - The `**Not now:**` line lowers matching candidates. It does not delete them — a
   deprioritized task still appears under "Passed over", with the focus line as its reason,
   so the user can see the rule firing and override it.

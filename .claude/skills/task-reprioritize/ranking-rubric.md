@@ -149,13 +149,20 @@ gated — fall through to the tiebreakers.
 
 ### Which skill applies it
 
-`/task-next` applies it. `/task-reprioritize` does not, for the same reason focus
-weighting stays out of placement: a gate is usually **transient**, while a bucket is a
-statement about importance rather than about today. A `now/` task gated on a missing
-precondition is not misplaced — `now/` still correctly says it matters — and demoting
-it over a gate that clears next week is churn. `/task-reprioritize` cites this
-document section by section and does not cite this one, so its behavior is unchanged
-by the section existing.
+`/task-next` applies it. `/task-reprioritize` does not: a gate is usually
+**transient**, while a bucket is a statement about importance rather than about today. A
+`now/` task gated on a missing precondition is not misplaced — `now/` still correctly
+says it matters — and demoting it over a gate that clears next week is churn.
+`/task-reprioritize` cites this document section by section and does not cite this one,
+so its behavior is unchanged by the section existing.
+
+That reasoning stands on its own. It used to be stated as shared with focus weighting,
+which `/task-reprioritize` **now does apply** ([Focus
+weighting](#focus-weighting-tasksfocusmd)) — the two cases part company on durability. A
+focus statement is the owner's standing declaration of what the queue is for, revised
+deliberately and rarely; a gate is a fact about one task that is expected to expire on
+its own. Focus still honours the distinction this section draws: it never lifts a task
+past one whose remaining work can actually start.
 
 ---
 
@@ -208,13 +215,96 @@ A repo may state, in its owner's own words, what matters right now. That stateme
 lives at `<tasks>/focus.md` — the tasks root, beside `README.md`, deliberately outside
 every bucket directory so no task glob mistakes it for a task.
 
-- **`/task-next` reads it** (its Phase 1) and weights the whole candidate pool by it.
-  The owner's stated intent outranks any inference drawn from the queue's shape.
-- **`/task-reprioritize` does not read it.** Bucket shape is decided on mechanics; a
-  prose statement of intent is a selection-time signal, not a placement rule.
+**Both skills read it**, at two deliberately different cadences:
+
+| Skill | When it reads focus | What focus decides there |
+|-------|---------------------|--------------------------|
+| `/task-reprioritize` | At each rebalance — **coarse and durable** | Which bucket a task sits in, so the queue's shape carries the stated direction between rebalances |
+| `/task-next` | At every selection — **fine and live** | Which single task to start today, from whatever the buckets currently hold |
+
+Applying it at both is not double-counting. Placement writes the direction into a
+structure that then persists unattended; selection re-reads the direction as it stands
+right now. **Where the two disagree, the selection-time read wins.** A bucket is a
+snapshot of the focus as it was at the last rebalance, so the fresher read corrects the
+staler one rather than compounding it: a task that focus lifted into `now/` last month,
+which today's focus no longer covers, is ranked by `/task-next` on today's focus and
+inherits no bonus from the bucket it was placed in.
+
 - **No skill writes a next task into it.** `/session-land` records a session's resume
   point in the task document the work belongs to, not here; `/task-next` then surfaces
   it through in-flight pinning. See [Direction, not a next task](#direction-not-a-next-task).
+
+### What counts as in focus
+
+One rule, applied identically by both skills. It lives here precisely so the two cannot
+drift on what "in focus" means.
+
+A task is **in focus** when a **specific quotable sentence** of the focus prose covers
+its **In brief**, `## Goal`, or `## Scope`. That is a semantic judgment made by reading
+both documents — not a path match, not a label match — and the judgment carries its
+evidence: the quoted fragment travels with it into `/task-reprioritize`'s plan table and
+`/task-next`'s ranking rationale, so a reader can see *which sentence* fired.
+
+Requiring the quote is what makes the rule work on real focus documents, which routinely
+state conditions rather than areas. A focus saying that work elsewhere counts "exactly
+when it unblocks this path" cannot be matched by extracting directory names from it; it
+can be matched by reading a task and pointing at that clause. The requirement is also the
+guard: if you cannot quote a sentence that covers the task, it is not in focus, however
+plausible the association felt.
+
+- **No citable sentence → out of focus, which is neutral.** Out of focus is the ordinary
+  state of most of a queue. It carries no penalty — the task ranks on mechanics alone.
+- **The `**Not now:**` line actively lowers** the tasks it names. That single line is the
+  only part of the document that pushes down rather than merely failing to lift.
+
+### How much focus weighs
+
+**Focus modifies the mechanics; it never overrides them.** Every rule that already
+decides an outcome keeps its full force — [Readiness and evidence
+signals](#readiness-and-evidence-signals), [In-flight pinning](#in-flight-pinning), and,
+for `/task-next`, [Startability](#startability). Focus never overturns the
+blocked-in-`now/` demotion, never unpins in-flight work, and never lifts a task the
+selecting skill has screened as unstartable. **It cannot promote a task whose remaining
+work cannot start.**
+
+What it does, in each place a ranking is formed:
+
+- **Ordering within a placement category.** In-focus ranks above out-of-focus, applied
+  *before* the coupling tiers and tiebreakers. Focus reorders the pool; it never moves a
+  task between the N/S/L categories, which are decided by Scope alone.
+- **Backfill preference.** Where `now/` is under-target and S candidates are pulled up,
+  prefer in-focus ones, then area diversity.
+- **Trim preference.** Where a bucket is over tolerance, trim out-of-focus tasks first.
+- **The trim exemption.** A **blocked in-focus** task demoted out of `now/` lands in
+  `soon/` and is **exempt from the onward trim to `later/`**. "Blocked — revisit when
+  unblocked" is only useful if the task stays somewhere it will be looked at, and the
+  focus statement is the evidence that it will be. Where the exemption leaves `soon/`
+  over tolerance, report the deviation by name, exactly as in-flight pinning already
+  does.
+
+That exemption is the whole of focus's extra reach into placement, and it is deliberately
+this small: **the shape targets themselves do not flex.** Focus decides which tasks fill
+the shape, never how big the shape is.
+
+**Say so when the focus is unworkable.** If every in-focus task is blocked (or, for
+`/task-next`, gated), that is a finding and it must be reported in as many words: the
+stated focus is currently unworkable. Do not paper over it by promoting blocked work on
+the strength of its area. A queue that honestly reports "the thing you said matters
+cannot be started" is more useful than one that merely looks aligned, and losing that
+signal is the sharpest cost this weighting could carry.
+
+### Churn
+
+A rewritten focus is expected to move a handful of un-started tasks at the next
+rebalance. That is the feature operating, not noise — buckets that track declared intent
+have to move when the intent changes. The existing dampers bound it: in-flight pinning
+holds started work in place, no-op reassignments are suppressed, a task promoted in a run
+is not demoted again in the same run, and the weight-not-override design above keeps
+focus away from anything the mechanics have an opinion about.
+
+No hysteresis rule, deliberately. A damper for observed flapping can be added when
+flapping is observed; adding one now would be tuning against a problem nobody has
+measured.
 
 ### Format
 
@@ -269,9 +359,18 @@ contract with any skill — it is just prose, and a reader treats it as such.
 
 ### Staleness
 
+**Test that the file exists first, and only then ask git how old it is.** Absence is not
+one of this command's output branches:
+
 ```bash
 git log -1 --format=%cs -- <tasks>/focus.md
 ```
+
+`git log` reports the last commit that *touched* a path, so for a focus document someone
+deleted it exits 0 and prints an ordinary recent date (measured). A reader that skips the
+existence test therefore gets a confident "focus is current" for a file that is not
+there — the pass state reached by the very failure the check exists to detect. Stat the
+file; then branch on the command's output:
 
 - Date older than roughly 30 days → say so, ask whether the focus still holds, and
   **use it anyway**. A stale statement of intent still beats no statement.
@@ -281,6 +380,13 @@ git log -1 --format=%cs -- <tasks>/focus.md
 - File absent → say so out loud and rank on mechanics alone. Silent degradation is the
   failure mode to avoid: the user must never mistake a mechanics-only ranking for one
   that honored a focus they thought was being read.
+
+**Both readers branch on all four cases, and both name the branch they took.** For
+`/task-next` that shapes one recommendation; for `/task-reprioritize` it shapes an entire
+pass, so an absent focus means the whole rebalance ran on mechanics and the report has to
+say that where the focus findings would otherwise have gone. A placement pass degrades
+exactly as visibly as a selection pass, or the queue silently stops honouring a document
+the owner still believes is being read.
 
 ---
 

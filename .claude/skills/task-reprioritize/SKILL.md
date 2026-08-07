@@ -11,18 +11,44 @@ This command owns **all bucket moves and deletions** — `/task-audit` verifies 
 
 This skill **stages** changes via `git mv` / `git rm` but does **NOT** auto-commit.
 
-**The ranking rules live in [`ranking-rubric.md`](ranking-rubric.md)**, next to this file — area inference, in-flight pinning, readiness and evidence signals, the N/S/L placement categories, the A/B/C coupling tiers, and the tiebreakers. `/task-next` reads the same rubric to pick a single task to start, so the two skills rank identically by construction. Read the rubric before Phase 1; the phases below cite its sections rather than restating them.
+**The ranking rules live in [`ranking-rubric.md`](ranking-rubric.md)**, next to this file — area inference, in-flight pinning, readiness and evidence signals, the N/S/L placement categories, the A/B/C coupling tiers, the tiebreakers, and focus weighting. `/task-next` reads the same rubric to pick a single task to start, so the two skills rank identically by construction. Read the rubric before Phase 1; the phases below cite its sections rather than restating them.
+
+**This pass is weighted by `<tasks>/focus.md` throughout**, not as a closing report line. Every phase below says how focus affected it, and the rubric's [Focus weighting](ranking-rubric.md#focus-weighting-tasksfocusmd) section is the single specification of what matches, how much it weighs, and what to do when the document is stale or absent. Focus modifies the mechanics and never overrides them — in particular it never promotes a task whose remaining work cannot start.
 
 ## Repo conventions (resolve first)
 
 - **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — run `/task-create` to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` (when it exists) holds tasks the autonomous runner is executing — read-only context for this skill, never a source or target of moves. In repos without it, skip everything that mentions it.
 - **Bucket definitions**: [`../task-create/bucket-definitions.md`](../task-create/bucket-definitions.md), relative to this skill's directory — what each bucket means and the shape target this skill enforces, shared with every other task skill so they cannot drift. If that path does not resolve (a repo whose `task-create` symlink is missing), read `devtools/.claude/skills/task-create/bucket-definitions.md` and say you fell back.
+- **Focus document**: `<tasks>/focus.md` — the owner's statement of what matters right now, at the tasks root beside `README.md`. It sits outside every bucket directory, so a bucket glob never reaches it and it is never a candidate for a move. Format, matching, weight, and the staleness branches are all specified in [`ranking-rubric.md` § Focus weighting](ranking-rubric.md#focus-weighting-tasksfocusmd).
 - **`never/` is excluded from rebalancing**: nothing is promoted out of or demoted into `never/` by shape rules. Parking and unparking are deliberate acts, via `/task-move`.
 
 ---
 
 ## Phase 1 — Inventory (including `queued/` as read-only context)
+
+### Read the focus document first
+
+Before globbing anything, read `<tasks>/focus.md` and derive its staleness, per
+[`ranking-rubric.md` § Focus weighting](ranking-rubric.md#focus-weighting-tasksfocusmd)
+and its [Staleness](ranking-rubric.md#staleness) subsection. **Check that the file exists
+before asking git anything** — `git log` prints a normal recent date for a *deleted*
+path, so running it first reports a healthy focus for a document that is gone:
+
+```bash
+test -f <tasks>/focus.md && git log -1 --format=%cs -- <tasks>/focus.md
+```
+
+Read that command's actual output and name which of the four branches you are on —
+current, older than ~30 days, empty (exists but never committed, **never** read as
+fresh), or file absent. Whichever it is, it goes in the Phase 2 diagnosis block in as
+many words. An absent focus does not make this a quieter run: it makes the run
+mechanics-only, and the report has to say so where the focus findings would have gone.
+
+Extract the prose statement and the optional `**Not now:**` line. They are the input to
+every focus judgment below.
+
+### Inventory the buckets
 
 Glob for all `.md` files under:
 
@@ -46,7 +72,14 @@ For each task, read the file and extract:
 | **Goal** | First sentence of the `## Goal` (or `## Problem statement`) section |
 | **Progress** | Count of `- [x]` vs total `- [ ]` + `- [x]` items inside `## Acceptance criteria`. Sentinel lines `<!-- AC:BEGIN -->` / `<!-- AC:END -->` inside the section are ignored. |
 | **Area** | Inferred from `## Scope` — see "Area inference" below |
+| **Focus** | The quoted focus sentence covering this task's **In brief**, `## Goal`, or `## Scope`, or `—` for out of focus — see "Focus matching" below |
 | **Related-task references** | Other task filenames mentioned in `## Scope`, `## Out of scope`, or `## References` |
+
+### Focus matching
+
+Apply [`ranking-rubric.md` § What counts as in focus](ranking-rubric.md#what-counts-as-in-focus). A task is in focus only when you can quote a **specific sentence** of the focus prose that covers it; record that fragment, because it travels with the judgment all the way to the plan table. No citable sentence means out of focus, which is **neutral** — most of a healthy queue is out of focus and ranks on mechanics alone. Record separately any task named by the `**Not now:**` line: that is the one signal that actively lowers.
+
+With no focus document, every task's Focus cell is `—` and the column header says so; do not silently omit the column.
 
 ### Area inference
 
@@ -56,7 +89,7 @@ Print a compact inventory table grouped by bucket, including the queued section 
 
 ```
 ### Now (N) | Soon (N) | Later (N) | Queued (N, read-only)
-| Bucket | Task | Status | Effort | Progress | Area | Goal (1 sentence) |
+| Bucket | Task | Status | Effort | Progress | Area | Focus | Goal (1 sentence) |
 ```
 
 If `now/`, `soon/`, `later/` are all empty (and `queued/`, where present, is also empty), print "No tasks anywhere — nothing to rebalance." and stop.
@@ -77,11 +110,21 @@ Tolerance allows ±1 around the target so a 4-task `now/` is not noisily flagged
 
 Also evaluate the **readiness signals** and the **evidence-based signals** in [`ranking-rubric.md` § Readiness and evidence signals](ranking-rubric.md#readiness-and-evidence-signals) — the first set read off the task documents themselves, the second off a `/task-audit` run earlier in this conversation (or dated audit notes embedded in the documents). Both sets always override bucket-shape moves; the rubric's Action column is written in this skill's bucket vocabulary and applies here literally.
 
+Then assess the **focus** the Phase 1 read produced, and compute its **workability**: of
+the in-focus tasks, how many are not `blocked`. That count is the signal the whole
+weighting is built to preserve — see below.
+
 Print a diagnosis block:
 
 ```
 Current shape: now=N, soon=N, later=N (queued=N executing)
 Targets:       now≈3, soon≈3, later=rest
+
+Focus: <present, last touched YYYY-MM-DD | present but >30 days old (YYYY-MM-DD) — using it anyway, does it still hold? | present but never committed — staleness unknown | ABSENT — this pass ranked on mechanics alone>
+- statement: <one-line paraphrase of the prose>
+- not now: <the **Not now:** line, or "none">
+- in focus (K of M tasks): <task> ("<quoted fragment>"), ...
+- workable: <J of K in-focus tasks can be started (K-J blocked)>
 
 Bucket health:
 - now: <under-target by K | at-target | over-target by K>
@@ -95,6 +138,24 @@ Queued context (read-only):
 - <task> [area:<area>]
 ...
 ```
+
+**When every in-focus task is blocked, say so loudly**, on its own line, before the plan:
+
+```
+!! The stated focus is currently entirely unworkable: all K in-focus tasks are blocked.
+   Rebalancing cannot fix this — it reports it. Unblocking one of them, or rewriting
+   <tasks>/focus.md, is the real next move.
+```
+
+That report is not decoration. Reading a focus statement makes it tempting to promote
+work merely because it sits in the named area, and a queue that looks aligned while
+nothing in it can be started is strictly worse than one that says so. Focus never
+promotes blocked work into `now/` (rubric § How much focus weighs); this line is what
+the reader gets instead.
+
+With **no focus document**, print the `Focus: ABSENT` line above and omit the four
+sub-lines — never omit the block. The rest of the pass runs on mechanics exactly as it
+always did.
 
 If shape is at-target AND no overrides apply, print "Queue is at-target — no moves." and stop.
 
@@ -113,23 +174,29 @@ Apply these steps in order. After each step, recompute bucket counts so the next
 For each readiness or evidence signal from Phase 2:
 
 - **>50% progress outside `now/`** → schedule a move to `now/`. Rationale: "in-flight (X/Y criteria done)".
-- **Blocked in `now/`** → schedule a demote to `soon/`. Rationale: "status=blocked; revisit when unblocked".
+- **Blocked in `now/`** → schedule a demote to `soon/`. Rationale: "status=blocked; revisit when unblocked". **Focus does not change this demotion** — an in-focus blocked task still leaves `now/`. What it changes is what happens next: mark an in-focus one **trim-protected**, and Step 5 will not push it on to `later/` (rubric § How much focus weighs). Note the protection in the rationale, with the citation.
 - **All acceptance criteria checked in `now/`, or audit-confirmed complete** → schedule a deletion. Rationale: "all criteria met; flag for removal" (cite audit evidence where available).
 - **Audit-backed promotion** (blocking work, landed dependency, invalidated parking rationale, velocity work) → schedule the promotion, citing the evidence.
 
-These overrides override shape concerns. They run first so the rest of the plan sees the corrected state.
+These overrides override shape concerns, and focus does not outrank any of them. They run first so the rest of the plan sees the corrected state.
 
 #### Step 2 — Classify each candidate by placement category
 
 For each task currently in `now/`, `soon/`, or `later/` *not* claimed by a Step 1 override, assign a **placement category** per [`ranking-rubric.md` § Placement categories](ranking-rubric.md#placement-categories-n--s--l) — **N** (single-area production work) → `now/`, **S** (multi-area production, or support-only work) → `soon/`, **L** (foundational system change) → `later/`, defaulting to **S** with "(category ambiguous; defaulted to S)" when no rule fits cleanly.
 
+**Focus plays no part in this step.** Categories are decided by `## Scope` alone; focus reorders tasks *within* a category in Step 3, and never moves one between categories. An in-focus foundational rewrite is still **L**.
+
 Before categorizing, apply [`ranking-rubric.md` § In-flight pinning](ranking-rubric.md#in-flight-pinning): a task with any checked acceptance criteria or status `in-progress` stays in its current bucket regardless of category. Note these as "pinned (in-flight)" in the plan output. They still consume a slot toward the bucket's target count.
 
-#### Step 3 — Sub-rank within each category by area-coupling and tiebreakers
+#### Step 3 — Sub-rank within each category by focus, area-coupling, and tiebreakers
 
-Order the tasks in each category by the **area-coupling tier** in [`ranking-rubric.md` § Area-coupling tiers](ranking-rubric.md#area-coupling-tiers-a--b--c) — **A** (shares an area with a `queued/` task), **B** (distinct from every queued area), **C** (shares an area with an `in-progress` task already in `now/`). In repos without a queue, every task is Tier B unless it matches an `in-progress` task in `now/`.
+Order the tasks in each category in this sequence:
 
-Within each tier, apply [`ranking-rubric.md` § Tiebreakers](ranking-rubric.md#tiebreakers): higher progress fraction, then older creation date, then smaller `effort`.
+1. **Focus** (rubric § How much focus weighs) — in-focus above out-of-focus, and below both, anything the `**Not now:**` line names. This runs *first*, ahead of the coupling tiers: it is the strongest thing focus does to ordinary ranking.
+2. **Area-coupling tier** — [`ranking-rubric.md` § Area-coupling tiers](ranking-rubric.md#area-coupling-tiers-a--b--c): **A** (shares an area with a `queued/` task), **B** (distinct from every queued area), **C** (shares an area with an `in-progress` task already in `now/`). In repos without a queue, every task is Tier B unless it matches an `in-progress` task in `now/`.
+3. **Tiebreakers** — [`ranking-rubric.md` § Tiebreakers](ranking-rubric.md#tiebreakers): higher progress fraction, then older creation date, then smaller `effort`.
+
+With no focus document, step 1 is a no-op and the order is the coupling tier then the tiebreakers, exactly as before.
 
 #### Step 4 — Place into target buckets
 
@@ -137,13 +204,20 @@ Within each tier, apply [`ranking-rubric.md` § Tiebreakers](ranking-rubric.md#t
 - Take ranked S candidates, fill `soon/` up to **3** slots. Surplus S tasks fall to `later/`.
 - All L candidates → `later/`.
 
-If `now/` is under-target after N exhausted (e.g. only 2 N tasks exist), pull the top S candidates to backfill — prefer S candidates whose area doesn't already match a now-placed task. Note these as "(promoted from S — N pool short)" in the rationale.
+If `now/` is under-target after N exhausted (e.g. only 2 N tasks exist), pull the top S candidates to backfill — prefer **in-focus** S candidates first, then those whose area doesn't already match a now-placed task. Note these as "(promoted from S — N pool short)" in the rationale, with the focus citation where focus decided which one.
 
 If `soon/` is under-target after S exhausted, leave it under-target rather than dragging up infrastructure. Note the deviation: "soon/ under-target by K; only infra candidates remain."
 
 #### Step 5 — Trim over-target buckets
 
-If after Step 4 either bucket exceeds target + 1 (tolerance), demote bottom-ranked tasks from that bucket to the next bucket down. Bottom-ranked = lowest tier within category, then lowest progress, then largest effort. Do not demote a task that was just promoted in this same plan run (avoid promote-then-demote churn).
+If after Step 4 either bucket exceeds target + 1 (tolerance), demote bottom-ranked tasks from that bucket to the next bucket down. Bottom-ranked = out-of-focus before in-focus, then lowest tier within category, then lowest progress, then largest effort. Do not demote a task that was just promoted in this same plan run (avoid promote-then-demote churn).
+
+Two tasks are **not eligible** as trim victims:
+
+- Anything pinned in-flight (rubric § In-flight pinning) — as before.
+- A **blocked in-focus** task that Step 1 demoted into `soon/`, which Step 1 marked trim-protected. "Revisit when unblocked" only works if the task stays where it will be looked at.
+
+If the protections leave a bucket over tolerance, **stop trimming and name the deviation** rather than trimming something protected: "soon/ over tolerance by K — J blocked in-focus tasks are trim-protected there." That is the same shape as the in-flight-pinning deviation the skill already reports, and it is the honest reading — the shape target did not flex, the queue is genuinely carrying more deferred in-focus work than the shape wants, and that is worth seeing.
 
 ### Edge cases
 
@@ -152,6 +226,10 @@ If after Step 4 either bucket exceeds target + 1 (tolerance), demote bottom-rank
 - **No git creation date** (file never committed): the rubric's tiebreaker rule applies — treat the task as oldest.
 - **Area inference fell back to title**: include "(area inferred from title)" in the rationale so the user can correct.
 - **Task already in the right bucket per its category**: no move needed. Don't churn for no-op reassignments.
+- **No `focus.md`**: rank on mechanics alone, and say so in the diagnosis block's `Focus: ABSENT` line and again in the final report. Never let a mechanics-only pass read as a focus-honouring one — that is the failure the rubric's Staleness branch exists to prevent.
+- **`focus.md` older than ~30 days**: use it anyway and flag the age, asking in the output whether it still holds. A stale statement of intent still beats no statement.
+- **`focus.md` exists but was never committed** (`git log -1` prints nothing and exits 0): use it, and report "staleness unknown — not committed yet". Never read empty output as fresh.
+- **A focus rewrite moved several un-started tasks**: expected, not a bug (rubric § Churn). Say how many moves focus drove, so the effect is visible rather than inferred.
 
 ---
 
@@ -162,14 +240,26 @@ Print the full plan as a table **before** any move:
 ```
 ### Proposed rebalance plan (N moves)
 
-| # | Task | From | To | Cat | Coupling | Rationale |
-|---|------|------|----|-----|----------|-----------|
-| 1 | normalize-imported-record-fixtures | later/ | now/ | N | B | single production area (data:fixtures); distinct from queued |
-| 2 | replace-hand-rolled-schema-updates-with-migrations | soon/ | later/ | L | B | introduces a migration framework + startup change — infra rewrite |
-| ...                                  | ...   | ...  | ... | ... | ... |
+| # | Task | From | To | Cat | Coupling | Focus | Rationale |
+|---|------|------|----|-----|----------|-------|-----------|
+| 1 | normalize-imported-record-fixtures | later/ | now/ | N | B | "loaded from fixtures" | single production area (data:fixtures); distinct from queued |
+| 2 | replace-hand-rolled-schema-updates-with-migrations | soon/ | later/ | L | B | **Not now** | introduces a migration framework + startup change — infra rewrite |
+| 3 | swap-the-report-renderer | now/ | later/ | — | B | — | status=blocked → soon/ (Step 1), then trimmed on (Step 5): out of focus, and the three in-focus blocked tasks in soon/ are protected |
+| ...                                  | ...   | ...  | ... | ... | ... | ... |
 ```
 
 (`Cat` = placement category N/S/L from Step 2. `Coupling` = area-coupling tier A/B/C from Step 3.)
+
+The **`Focus` column is what makes a focus-driven move legible without re-deriving the ranking**, so fill it honestly, per move:
+
+| Cell | Means |
+|---|---|
+| `"<quoted fragment>"` | In focus — this is the sentence that covers the task (rubric § What counts as in focus) |
+| `**Not now**` | Named by the `**Not now:**` line — actively lowered |
+| `—` | Out of focus. Neutral: the move was decided on mechanics alone |
+| `— (no focus doc)` | There is no `focus.md`; the whole pass was mechanics-only |
+
+A quoted fragment in this column is a claim that focus *contributed* to the move. Where focus was read but changed nothing about a particular move, the citation still belongs there — it says the task is in focus and the mechanics agreed anyway — but the Rationale must not credit focus for a decision the mechanics made on their own. After the table, state in one line how many moves focus actually decided, and name them.
 
 For each move, run:
 
@@ -191,9 +281,12 @@ After applying, print:
 
 ```
 Done. Final shape: now=N, soon=N, later=N.
+Focus: <how it was read, and how many of the N moves it decided | "ABSENT — ranked on mechanics alone">
 Review the staged moves: `git status` then `git diff --staged --stat`.
 Do **NOT** auto-commit. Commit when satisfied.
 ```
+
+Carry any deviation Step 4 or Step 5 named into this block too — an under-target `soon/`, a bucket held over tolerance by trim-protected in-focus tasks, or a focus that is entirely unworkable. A deviation reported only inside the plan-building narrative is a deviation the reader skims past.
 
 ---
 
@@ -201,57 +294,76 @@ Do **NOT** auto-commit. Commit when satisfied.
 
 A synthetic queue that exercises every branch of the algorithm — an at-a-glance regression check when modifying this skill. The paths belong to an invented web app; the mechanics are repo-agnostic.
 
+**The focus document** (`<tasks>/focus.md`, last committed 6 days ago — current):
+
+```markdown
+# Focus
+
+The importer and the record model it feeds: getting imported records into one
+normalized shape before anything else is built on top of them. Work counts as in
+focus when it changes how records are constructed, typed, or loaded from fixtures,
+or when it unblocks that path.
+
+**Not now:** replacing foundational plumbing — the migration framework in particular — until the record shape has stopped moving.
+```
+
 **Inventory:**
 
-- `now/`: *(empty)*
-- `soon/`: 1 task — `replace-hand-rolled-schema-updates-with-migrations.md`
-- `later/`: 6 tasks —
-  - `normalize-imported-record-fixtures.md`
-  - `unify-the-two-model-construction-paths.md`
-  - `decouple-annotation-tests-from-implementation.md`
-  - `introduce-record-id-newtype.md`
-  - `refactor-simulator-test-architecture.md`
-  - `type-session-json-columns-against-schema-models.md`
-- `queued/` (read-only): 3 —
-  - `rebaseline-parser-fixtures-after-tokenizer-fix.md` (feature: parser)
-  - `rework-task-reprioritize-skill.md` (meta: skills)
-  - `tune-billing-proration-for-mid-cycle-upgrades.md` (feature: billing)
+| Bucket | Task | Status | Effort | Progress | Area | Focus |
+|---|---|---|---|---|---|---|
+| `now/` | `backfill-importer-provenance-columns` | blocked | medium | 0/4 | importer | "how records are constructed" |
+| `now/` | `link-records-to-their-source-batch` | blocked | medium | 0/3 | importer | "how records are constructed" |
+| `now/` | `dedupe-records-across-import-batches` | blocked | large | 0/6 | importer | "one normalized shape" |
+| `now/` | `swap-the-report-renderer` | blocked | medium | 0/5 | reports | — |
+| `now/` | `normalize-imported-record-fixtures` | not-started | small | 0/3 | fixtures | "loaded from fixtures" |
+| `soon/` | `harden-importer-retry-backoff` | in-progress | medium | 2/5 | importer | "The importer and the record model it feeds" |
+| `soon/` | `replace-hand-rolled-schema-updates-with-migrations` | not-started | large | 0/7 | models | **Not now** |
+| `later/` | `unify-the-two-model-construction-paths` | not-started | medium | 0/4 | importer | "how records are constructed" |
+| `later/` | `introduce-record-id-newtype` | not-started | medium | 0/5 | (multi) | "constructed, typed, or loaded" |
+| `later/` | `type-session-json-columns-against-schema-models` | not-started | large | 0/6 | (multi) | "constructed, typed, or loaded" |
+| `later/` | `refactor-simulator-test-architecture` | not-started | medium | 0/4 | tests:evals | — |
+
+`queued/` (read-only): `rebaseline-parser-fixtures-after-tokenizer-fix` (parser), `rework-task-reprioritize-skill` (skills), `tune-billing-proration-for-mid-cycle-upgrades` (billing).
 
 **Diagnosis:**
 
-- now=0 → under-target by 3
-- soon=1 → under-target by 2
-- No readiness overrides (no >50% tasks outside `now/`; nothing blocked in `now/`).
-- Queued areas: parser, skills, billing. No candidate task shares these areas — every candidate is Tier B (distinct, safe complement).
+- now=5 → over-target by 1 (tolerance ceiling is 4); soon=2 → under-target by 1; later=4
+- Focus present, last touched 6 days ago — current. In focus: 8 of 11. **Workable: 5 of 8** (`backfill`, `link-records`, `dedupe` are blocked) → the focus is workable, so no "entirely unworkable" report; the count is still printed.
+- Readiness overrides: four tasks blocked in `now/`.
+- Queued areas: parser, skills, billing. No candidate shares them — every candidate is Tier B.
 
-**Step 2 — Classify:**
+**Step 1 — Hard overrides:** all four blocked `now/` tasks demote to `soon/`. Three are in focus → **trim-protected**; `swap-the-report-renderer` is not. Recomputed: now=1, soon=6.
+
+**Step 2 — Classify** the tasks Step 1 did not claim. `harden-importer-retry-backoff` is pinned in-flight (2/5 checked) and stays in `soon/`, consuming a slot.
 
 | Task | Scope areas | Category | Rationale |
 |------|------|---|---|
 | `normalize-imported-record-fixtures` | `app/fixtures/imported_records/` | **N** | single production area |
 | `unify-the-two-model-construction-paths` | `app/features/importer/...` (single area) | **N** | single production area |
-| `decouple-annotation-tests-from-implementation` | `app/frontend/src/features/editor/components/annotations/...` | **N** | single production area (production + tests co-located) |
 | `introduce-record-id-newtype` | `app/features/search/`, `app/features/reports/`, `app/features/editor/`, `app/api/` | **S** | multi-area production work |
 | `type-session-json-columns-against-schema-models` | `app/models/`, `app/features/search/`, `app/features/importer/`, `app/features/schema/`, `app/api/` | **S** | multi-area production work |
 | `refactor-simulator-test-architecture` | `tests/unit/evals/simulator/` only ("No production changes required") | **S** | test-only |
 | `replace-hand-rolled-schema-updates-with-migrations` | `app/models/database.py`, new `migrations/` dir, `app/main.py`, docs | **L** | introduces a migration framework + startup change |
 
-**Step 3 — Sub-rank within each category** (all Tier B; tiebreakers are progress → age → effort, but no task has progress and all are not-started, so it reduces to age → effort):
+Note `replace-hand-rolled-schema-updates-with-migrations`: the `**Not now:**` line names it, but it was already **L**. Focus **confirmed** its placement rather than causing it — do not credit focus in its Rationale.
 
-- **N**: 3 candidates, all fit in `now/`. Order doesn't matter — all promoted.
-- **S**: 3 candidates, all fit in `soon/`. Order doesn't matter — all promoted.
-- **L**: 1 candidate → `later/`.
+**Step 3 — Sub-rank** (focus → coupling tier → tiebreakers; all Tier B, none has progress, so the tiebreakers reduce to age → effort):
+
+- **N**: `normalize-imported-record-fixtures`, `unify-the-two-model-construction-paths` — both in focus, so focus does not separate them; age decides (`normalize` is older).
+- **S**: `introduce-record-id-newtype`, `type-session-json-columns` (both in focus) rank above `refactor-simulator-test-architecture` (out of focus). Without focus, `refactor-simulator` would have outranked `type-session-json-columns` on smaller effort.
+- **L**: `replace-hand-rolled-schema-updates-with-migrations`.
 
 **Step 4 — Place:**
 
-- `now/` ← `normalize-imported-record-fixtures`, `unify-the-two-model-construction-paths`, `decouple-annotation-tests` ✓
-- `soon/` ← `introduce-record-id-newtype`, `type-session-json-columns`, `refactor-simulator-test-architecture` ✓
-- `later/` ← `replace-hand-rolled-schema-updates` ✓
-- `replace-hand-rolled-schema-updates` was in `soon/` before; it gets demoted to `later/` by the category-L rule.
+- The N pool holds only 2 → `now/` is under-target by 1, so backfill from S, **preferring in focus**: `introduce-record-id-newtype` is promoted. `now/` ← `normalize-imported-record-fixtures`, `unify-the-two-model-construction-paths`, `introduce-record-id-newtype` → now=3 ✓
+- `replace-hand-rolled-schema-updates-with-migrations` is **L** → `later/`. `soon/` now holds 5: `harden` (pinned), `backfill`, `link-records`, `dedupe` (all three protected), `swap-the-report-renderer`.
+- `soon/` is already over target, so the remaining S candidates fall to `later/`: `type-session-json-columns`, `refactor-simulator-test-architecture`.
 
-**Step 5 — Trim:** No over-target buckets.
+**Step 5 — Trim:** `soon/`=5 exceeds the tolerance ceiling of 4 → trim one. `harden` is pinned; `backfill`, `link-records`, and `dedupe` are trim-protected blocked in-focus tasks. The only eligible victim is `swap-the-report-renderer` → `later/`. `soon/`=4, at the ceiling.
 
-**Final shape:** now=3, soon=3, later=1.
+**The one move focus actually decided.** Mechanically — out-of-focus-first removed from the ordering — the bottom-ranked task in `soon/` would have been `dedupe-records-across-import-batches` (no progress, largest effort, newest), and it would have gone to `later/` while `swap-the-report-renderer` stayed. Focus protected `dedupe` and sent `swap` instead. Everything else focus touched this run changed the *order* without changing a *placement*, because the shape absorbed those candidates either way — which is the normal case, and why the plan's closing line reports the count of focus-decided moves rather than implying the whole plan was focus-driven.
+
+**Final shape:** now=3, soon=4, later=4. Deviation to report: `soon/` sits at the tolerance ceiling because three blocked in-focus tasks are trim-protected there.
 
 ---
 
