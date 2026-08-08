@@ -8,8 +8,12 @@ own, or if you are working in a project that mounts it as a submodule.
 
 The contents are published automatically from a private upstream repository on
 every change there, and republished on a daily schedule so that a publish which
-never ran cannot leave this copy behind indefinitely. **Nothing here is edited by
-hand**, and anything committed directly is overwritten by the next publish.
+never ran cannot leave this copy behind indefinitely. The schedule **bounds**
+that staleness rather than eliminating it: a publish that never ran is corrected
+within roughly a day, not immediately. If you need to know whether a given
+commit here is current, read its message — each one names the upstream commit it
+was generated from. **Nothing here is edited by hand**, and anything committed
+directly is overwritten by the next publish.
 
 - **No pull requests.** They cannot be merged — the next publish would discard
   them.
