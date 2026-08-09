@@ -1,7 +1,6 @@
 ---
 name: task-create
 description: Create a new task from the template
-argument-hint: "[task-name]"
 ---
 
 # Create Task

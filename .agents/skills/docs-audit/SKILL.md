@@ -1,7 +1,6 @@
 ---
 name: docs-audit
 description: Audit documentation for style compliance, navigation, and accuracy
-argument-hint: "[all|style|navigation|accuracy]"
 ---
 
 # Audit Docs
@@ -9,6 +8,9 @@ argument-hint: "[all|style|navigation|accuracy]"
 Audit all documentation in `docs/` against the shared style guide — checking style compliance, navigation integrity, and content accuracy — then apply safe fixes and report findings.
 
 This command checks documentation **quality and discoverability** — not content correctness or feature completeness.
+
+**Arguments**: $ARGUMENTS — optional `[all|style|navigation|accuracy]`, naming which phase
+to run. Default is `all`.
 
 Execute the following phases in order.
 

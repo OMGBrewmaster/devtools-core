@@ -68,16 +68,18 @@ set -u
 
 # Resolve the repo root from the script's own location, WITHOUT resolving
 # symlinks. In consuming repos this script is reached through a per-skill
-# symlink (.claude/skills/task-queue -> .../devtools/.claude/skills/task-queue),
+# symlink (.agents/skills/task-queue -> .../devtools/.agents/skills/task-queue,
+# and .claude/skills/task-queue -> ../../.agents/skills/task-queue beside it),
 # and any physical resolution — `git -C` chdirs before it answers, so it
 # reports the *devtools* toplevel — would aim the runner at devtools' (empty)
 # queue instead of the mounting repo's. Bash's `cd`/`pwd` are logical by
 # default, so walking three levels up from the invocation path
-# (<root>/.claude/skills/task-queue) yields the mounting repo's root for
-# symlinked, vendored, and native layouts alike.
+# (<root>/.agents/skills/task-queue or <root>/.claude/skills/task-queue --
+# both are three deep) yields the mounting repo's root for symlinked,
+# vendored, and native layouts alike.
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 if [[ ! -e "$ROOT/.git" ]]; then
-  echo "[task-queue] error: resolved repo root '$ROOT' has no .git — this script expects to live at <repo>/.claude/skills/task-queue/run.sh" >&2
+  echo "[task-queue] error: resolved repo root '$ROOT' has no .git — this script expects to be invoked as <repo>/.agents/skills/task-queue/run.sh (or through the .claude/skills bridge)" >&2
   exit 1
 fi
 # Tasks root: docs/tasks/ (fleet default) or docs/planning/tasks/ (repos

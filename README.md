@@ -24,10 +24,11 @@ directly is overwritten by the next publish.
 
 | Path | What it is |
 |------|-----------|
-| `.claude/skills/task-*` | Claude Code skills for the task system — create, list, move, audit, reprioritize, finalize, pick the next one, implement it, report status, and run the autonomous queue |
-| `.claude/skills/docs-audit` | Documentation audit skill — style compliance, navigation, accuracy |
-| `.claude/skills/kaizen-resolve` | Closes out a continuous-improvement problem document once its flaw is verifiably gone |
-| `Tools/sync-skill-symlinks.sh` | Regenerates a project's per-skill `.claude/skills/` symlinks |
+| `.agents/skills/task-*` | Agent skills for the task system — create, list, move, audit, reprioritize, finalize, pick the next one, implement it, report status, and run the autonomous queue |
+| `.agents/skills/docs-audit` | Documentation audit skill — style compliance, navigation, accuracy |
+| `.agents/skills/kaizen-resolve` | Closes out a continuous-improvement problem document once its flaw is verifiably gone |
+| `.claude/skills/*` | One symlink per skill into `.agents/skills/`, so Claude Code — which does not yet read the standard path — finds them too |
+| `Tools/sync-skill-symlinks.sh` | Regenerates a project's per-skill symlinks on both surfaces |
 | `docs/signal-hygiene.md` | How to know a step actually happened — read exit codes, never suppress output |
 | `docs/definition-of-done.md` | What "done" requires, and where each repo names its own gates |
 | `docs/templates/` | Copy-paste-ready templates for architecture docs, feature docs, ADRs, and directory READMEs |
@@ -38,11 +39,19 @@ where a `queued/` bucket exists.
 
 ## Using it in a project
 
-Mount it as a submodule and link the skills you want into `.claude/skills/`:
+Mount it as a submodule and link the skills you want into `.agents/skills/`, the
+[Agent Skills](https://agentskills.io/specification) discovery path:
 
 ```bash
 git submodule add https://github.com/OMGBrewmaster/devtools-core.git devtools-core
-ln -s ../../devtools-core/.claude/skills/task-list .claude/skills/task-list
+ln -s ../../devtools-core/.agents/skills/task-list .agents/skills/task-list
+```
+
+Claude Code does not read `.agents/skills/` yet, so add a bridge link per skill
+beside it — one symlink, never a directory-level one:
+
+```bash
+ln -s ../../.agents/skills/task-list .claude/skills/task-list
 ```
 
 A consuming project pins the submodule at a specific commit and moves that

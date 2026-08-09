@@ -1,6 +1,7 @@
 ---
 name: task-queue
 description: Show how to start the autonomous task-queue loop runner that watches the tasks directory's queued/ bucket and processes each task in a fresh Claude Code session.
+compatibility: Requires the Claude Code CLI. The bundled runner launches each worker as a `claude --bg` session and reads Claude Code's own session state to detect completion, so no other harness can drive the loop. The queue conventions this skill documents (the queued/ bucket, the claim locks, the worker's execution discipline) are harness-neutral and readable anywhere.
 ---
 
 # Task Queue Loop
@@ -65,8 +66,9 @@ bash ${CLAUDE_SKILL_DIR}/run.sh
 ```
 
 (`${CLAUDE_SKILL_DIR}` resolves to this skill's directory —
-`devtools/.claude/skills/task-queue/`, also reachable as
-`.claude/skills/task-queue/` via the skills symlink.)
+`devtools/.agents/skills/task-queue/`, also reachable as
+`.agents/skills/task-queue/` or `.claude/skills/task-queue/` via the
+per-skill symlinks.)
 
 The runner **auto-detaches**: it re-execs itself under `setsid script`,
 returns immediately, and prints the detached pid plus the runner-log path

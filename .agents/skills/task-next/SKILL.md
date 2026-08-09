@@ -1,7 +1,6 @@
 ---
 name: task-next
 description: Recommend the single best task to start next in this repo — ranked by the shared rubric, weighted by the repo's focus document, and validated against HEAD before it is recommended
-argument-hint: "[optional constraint, e.g. 30m / tired / no Unity]"
 ---
 
 # Next Task

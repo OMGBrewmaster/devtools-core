@@ -1,7 +1,6 @@
 ---
 name: task-implement
 description: Implement a prepared task in the current session — re-verify the brief against HEAD, build to the acceptance criteria, tick them off as they are met, then close the task out on the user's confirmation (deleting the brief, per the repo's completion convention). Also the close-out path for a task that is already done but was never closed
-argument-hint: "[task-filename-or-path]"
 ---
 
 # Implement Task

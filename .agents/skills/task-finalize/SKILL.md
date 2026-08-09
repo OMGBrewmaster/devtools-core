@@ -1,15 +1,13 @@
 ---
 name: task-finalize
 description: Verify a task against HEAD, resolve its open questions interactively, write the recommended solution, validate readiness, and (in repos with a queue) optionally promote it to queued/ for the autonomous task-queue runner
-argument-hint: "[task-filename-or-path]"
-model: fable
 ---
 
 # Finalize Task
 
 Prepare a task for execution by a later session (or the autonomous runner): verify the task's claims against the codebase at HEAD, settle its open questions one at a time in conversation, record the resolutions in a `## Decisions` section, write a `## Recommended solution` where the analysis determines one, validate the task against the readiness rules, and — in repos with a queue — offer to `git mv` it into `<tasks>/queued/` so the task-queue runner picks it up.
 
-The frontmatter pins `model: fable` deliberately: finalization is the moment the strongest model earns its keep — it locks in the decisions and the design a later worker will execute. (The pin applies for this turn only; if the alias is unavailable the session model is silently kept, so treat it as a preference, not a guarantee.)
+**Run this on the strongest model available.** Finalization is the moment it earns its keep: this skill locks in the decisions and the design a later worker will execute, and a weak call here is inherited by every session that picks the task up. If you are on a weaker model, say so and offer to switch before Phase 2.5. (This was a `model:` frontmatter pin until 2026-08-09. It was dropped because the field is not in the Agent Skills spec — it fails validation and blocks the upload path — and because the pin was never observed to fire. An instruction reaches every harness; a vendor field reached one. The accepted loss: an unattended queue run gets whatever model the runner is configured with, with nobody present to read this.)
 
 **Arguments**: `$ARGUMENTS` — optional task filename (with or without `.md`) or full path. If omitted, this skill scans for candidates and asks which to finalize.
 

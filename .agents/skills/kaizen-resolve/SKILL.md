@@ -1,7 +1,6 @@
 ---
 name: kaizen-resolve
-description: Close out a problem document once its flaw is actually fixed — verify the flaw gone from the world's side (evidence, not "the fix task merged"), then delete the document and the journal entries it consumed in one staged change, citation-gated, and prove the remaining links resolve. The problem-side counterpart of /kaizen-review's pattern cascade in the journal lifecycle. Invoke when a fix for a documented problem has landed and the record should be retired, when docs/problems/ carries documents whose flaws may already be fixed, or when closing a task that references a problem document. A run that cannot produce the evidence stops at the evidence gate and reports a dry run rather than deleting anything; nothing is committed or pushed.
-argument-hint: "[problem-doc slug or path, optional]"
+description: Close out a problem document once its flaw is actually fixed — verify the flaw gone from the world's side (evidence, not "the fix task merged"), then delete the document and the journal entries it consumed in one staged change, citation-gated, and prove the remaining links resolve. The problem-side counterpart of the kaizen-review skill's pattern cascade in the journal lifecycle. Invoke when a fix for a documented problem has landed and the record should be retired, when docs/problems/ carries documents whose flaws may already be fixed, or when closing a task that references a problem document. A run that cannot produce the evidence stops at the evidence gate and reports a dry run rather than deleting anything; nothing is committed or pushed.
 ---
 
 # Kaizen Resolve
@@ -14,6 +13,8 @@ Two properties shape everything below:
 - **The deletion cascades, and only this session can perform it.** The document's evidence list — the journal entries it consumed — exists nowhere else; once the file is gone, nothing records which entries it absorbed. So the document and its passing entries go in **one staged change**, each entry behind the guide's citation gate, and never in separate commits.
 
 Repo-agnostic: it works in any project with a `docs/problems/` directory and stops cleanly in one without. It **stages** deletions and edits; it never commits and never pushes — every removal sits in `git status` for the human to read and revert before it is real.
+
+**Arguments**: $ARGUMENTS — an optional problem-document slug or path. With none, Phase 1 lists the candidates and asks which to resolve.
 
 ---
 

@@ -1,7 +1,6 @@
 ---
 name: task-move
 description: Move a task between priority buckets
-argument-hint: "[task-filename] [target-bucket]"
 ---
 
 # Move Task
