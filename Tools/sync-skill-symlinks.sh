@@ -9,7 +9,7 @@
 #
 # This script creates (or refreshes) PER-SKILL symlinks, on TWO surfaces:
 #
-#   .agents/skills/<name> -> ../../devtools/.agents/skills/<name>   canonical
+#   .agents/skills/<name> -> ../../<mount>/.agents/skills/<name>   canonical
 #   .claude/skills/<name> -> ../../.agents/skills/<name>            Claude Code bridge
 #
 # .agents/skills/ is the Agent Skills open standard's path, which every harness
@@ -19,11 +19,20 @@
 # so both are written, always, and the canonical one is written first — the
 # bridge points at it.
 #
+# The devtools tree is found by discovery, not by name: this script ships inside
+# the tree it looks for (at <mount>/Tools/), so the script's own physical
+# location names the mount. That works for the upstream layout (devtools/) and
+# for any consumer mounting the tree under another name (devtools-core/ and
+# beyond). When the script's own tree lives OUTSIDE the target repo — the
+# propagation case, where a fleet copy syncs another checkout — the mount's
+# basename is re-derived at the repo root. The one derived value feeds both the
+# source directory and the link targets, so the two can never disagree.
+#
 # Usage:
 #   sync-skill-symlinks.sh [REPO_ROOT]
 #
-#   REPO_ROOT  Directory containing .claude/ (or .agents/) and devtools/
-#              (default: cwd).
+#   REPO_ROOT  Directory containing .claude/ (or .agents/) and the devtools
+#              tree (default: cwd).
 #
 # Behaviour, applied to each surface independently:
 #   - Converts a directory-level symlink into a real directory.
@@ -43,13 +52,38 @@ set -euo pipefail
 shopt -s nullglob   # an empty skills dir must expand to nothing, not a literal '*'
 
 REPO_ROOT="${1:-$PWD}"
-SRC_DIR="$REPO_ROOT/devtools/.agents/skills"
 
 err() { printf 'error: %s\n' "$1" >&2; exit 1; }
 
 [ -d "$REPO_ROOT/.claude" ] || [ -d "$REPO_ROOT/.agents" ] \
   || err "no .claude/ or .agents/ under $REPO_ROOT"
-[ -d "$SRC_DIR" ] || err "no shared skills at $SRC_DIR (is the devtools submodule initialized?)"
+
+# Physical, absolute: the mount comparison below needs both sides real, and $1
+# may be relative or reach the repo through a symlink.
+REPO_ROOT="$(cd "$REPO_ROOT" && pwd -P)"
+
+# Resolve the mount. Step 1, self-location: the script ships at
+# <mount>/Tools/sync-skill-symlinks.sh, so the parent of its own physical
+# directory is the mount — whatever it is named — when that mount lies inside
+# REPO_ROOT. Step 2, basename fallback: a script invoked from some OTHER
+# checkout (fleet propagation) has its mount outside the target repo, so re-
+# derive the name at the repo root — `devtools` for a fleet sweep, `devtools-core`
+# for the mirror consumer. Step 3: fail, naming every path checked.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+SCRIPT_MOUNT="$(dirname "$SCRIPT_DIR")"
+
+case "$SCRIPT_MOUNT" in
+  "$REPO_ROOT"|"$REPO_ROOT"/*) MOUNT_DIR="$SCRIPT_MOUNT" ;;
+  *) MOUNT_DIR="$REPO_ROOT/$(basename "$SCRIPT_MOUNT")" ;;
+esac
+
+[ "$MOUNT_DIR" = "$REPO_ROOT" ] \
+  && err "refusing to run inside the devtools tree itself ($REPO_ROOT) — every shared skill would be linked onto itself; run this from the project repo that consumes the shared skills"
+
+SRC_DIR="$MOUNT_DIR/.agents/skills"
+MOUNT_NAME="$(basename "$MOUNT_DIR")"
+
+[ -d "$SRC_DIR" ] || err "no shared skills found — checked .agents/skills/ under '$SCRIPT_MOUNT' (the tree this script lives in) and '$REPO_ROOT/$MOUNT_NAME' (its basename at the repo root); the devtools tree is not present under either"
 
 dangling=0
 
@@ -123,7 +157,7 @@ sync_surface() {
 
 # Canonical first: the bridge's links point into it, so syncing the bridge
 # against a not-yet-written .agents/skills would report every link dangling.
-sync_surface "$REPO_ROOT/.agents/skills" "../../devtools/.agents/skills" "canonical"
+sync_surface "$REPO_ROOT/.agents/skills" "../../$MOUNT_NAME/.agents/skills" "canonical"
 sync_surface "$REPO_ROOT/.claude/skills" "../../.agents/skills" "Claude Code bridge"
 
 if [ "$dangling" -gt 0 ]; then

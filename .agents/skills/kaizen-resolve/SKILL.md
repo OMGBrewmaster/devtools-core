@@ -21,7 +21,20 @@ Repo-agnostic: it works in any project with a `docs/problems/` directory and sto
 ## Phase 1 — Preconditions
 
 1. **Does this repo track problems?** `docs/problems/` with at least one document besides `README.md`. If the directory is absent, print `This project has no docs/problems/ directory — nothing to resolve. Problem documents are filed by /kaizen-review when a flaw-shaped cluster appears.` and **stop**. If it holds only the README, say so and stop.
-2. **Resolve the lifecycle source.** Prefer `devtools/docs/kaizen-guide.md` from the repo root (a project whose docs live elsewhere may hold it at a different depth — the project's `docs/kaizen/README.md` links it). In a repo that consumes vendored skill copies with no devtools mount, the guide does not resolve; there the repo's own `docs/problems/README.md` must carry the cascade rules — the two greps and the keep-on-live-citation veto, seeded from `devtools/docs/templates/problems/README.md`. If neither source carries them, stop and say so — running the cascade from memory is how the lifecycle drifts across repos.
+2. **Resolve the lifecycle source.** The guide ships beside this skill wherever the devtools tree lives — in the upstream tree at `docs/kaizen-guide.md`, and under any mount at `<mount>/docs/kaizen-guide.md` — so resolve it in this order:
+
+   1. **Beside this file first**: `<this skill's physical directory>/../../../docs/kaizen-guide.md`. *Physical* is the operative word: consuming repos reach this skill through a symlink (e.g. `.claude/skills/kaizen-resolve -> ../../devtools-core/.agents/skills/kaizen-resolve` in a repo that mounts the tree as `devtools-core/`), so resolving `../../../docs/` **lexically** from the link path lands on the consuming repo's own `docs/` and misses the guide one directory away. Follow the file to the directory it physically lives in (resolve the symlink — `readlink -f`, or equivalent — before taking `..`). One rule then covers three layouts:
+
+   | Layout | Skill lives at | `<skill dir>/../../../docs/kaizen-guide.md` resolves to |
+   |---|---|---|
+   | This tree (upstream) | `.agents/skills/kaizen-resolve/` | `docs/kaizen-guide.md` — hit |
+   | Submodule or directory mount | `<mount>/.agents/skills/kaizen-resolve/` | `<mount>/docs/kaizen-guide.md` — hit |
+   | Vendored copy, no mount | `<repo>/.agents/skills/kaizen-resolve/` | `<repo>/docs/kaizen-guide.md` — miss, or a genuine local copy |
+
+   2. **Then the repo-root paths**, kept for repos that mount the docs elsewhere: `devtools/docs/kaizen-guide.md` from the repo root, and the project's `docs/kaizen/README.md` where it links the guide.
+   3. **Then the no-mount fallback, unchanged**: in a repo that consumes vendored skill copies with no devtools mount at all, the repo's own `docs/problems/README.md` must carry the cascade rules — the two greps and the keep-on-live-citation veto, seeded from `devtools/docs/templates/problems/README.md`.
+
+   If none of these sources carries the rules, stop and say so — running the cascade from memory is how the lifecycle drifts across repos. Say which source you read: the Phase 6 report names it, so a run that degraded to a thinner source is distinguishable from one that found the full guide.
 3. **Read the lifecycle source now** — the guide's "The journal's lifecycle" section where it resolves, and this repo's `docs/problems/README.md` always (a seeded copy that may deliberately diverge). Not from memory, and not from this file — the two greps, the veto rules, and the same-commit reasoning are deliberately not restated here. One source per repo, so the skill and the rules cannot disagree.
 
 ---
@@ -83,6 +96,7 @@ Deleting a document breaks links in files the diff never touched. Before reporti
 Print a concise block:
 
 - **The document**, and the flaw it recorded.
+- **The lifecycle source** — the file Phase 1 step 2 resolved, by path, and which branch found it (beside this file, a repo-root path, or the `docs/problems/README.md` fallback). Always present, so a run that degraded to the fallback announces it rather than looking identical to a full resolution.
 - **The evidence** — each check run, what it printed, and why that refutes the flaw's observables. For a dry run: the gate that stopped the pass, the checks that would settle it, and where they could run.
 - **The cascade** — every entry staged for deletion alongside the document, and every entry the citation check kept, naming what held it. Both halves: a cascade that reports only its deletions cannot be checked.
 - **Links** — inbound links fixed, prose citations repaired, journal entries left dangling by design, and any task flagged as possibly moot.

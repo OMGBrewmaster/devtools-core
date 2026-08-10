@@ -1136,6 +1136,162 @@ else
        "no audit-queue sibling in this repo"
 fi
 
+# ---- the merge-failed forensic record --------------------------------
+echo
+echo "merge-failed record — conflict capture, timing, and survival (real conflicting merge)"
+
+# Everything here is driven by an ACTUAL failed `git merge`, not by
+# inspecting the template string: a record that names the right paths in
+# a heredoc and the wrong ones at runtime is exactly the defect this
+# block exists to catch.
+#
+# The shape is the 2026-08-07 incident's: one content conflict in code
+# AND one modify/delete conflict confined to the queue directory. The old
+# record asserted "a real content conflict between the task branch's
+# changes and commits that landed on main" at every failure, which sent
+# that investigation to the innocent code overlap first.
+MFR="$TESTROOT/merge-failed-record"
+MFR_STATE="$MFR/.task-queue"
+MFR_WT="$TESTROOT/merge-failed-worktree"
+mkdir -p "$MFR/queued" "$MFR/src" "$MFR_STATE"
+git -C "$MFR" init -q -b main
+git -C "$MFR" config user.email t@t; git -C "$MFR" config user.name t
+printf 'base\n' > "$MFR/src/app.txt"
+printf '# brief\n'  > "$MFR/queued/mq-a.md"
+git -C "$MFR" add -A; git -C "$MFR" commit -qm seed
+
+# The task branch: edits the code and deletes its own brief (what a
+# worker does when it finishes a task).
+git -C "$MFR" checkout -q -b task-queue/mq-a
+printf 'from-branch\n' > "$MFR/src/app.txt"
+git -C "$MFR" rm -q "queued/mq-a.md"
+git -C "$MFR" commit -qam "worker work"
+
+# Main moves underneath it: same code line, and it touches the brief the
+# branch deleted — the modify/delete half.
+git -C "$MFR" checkout -q main
+printf 'from-main\n' > "$MFR/src/app.txt"
+printf '# brief edited on main\n' > "$MFR/queued/mq-a.md"
+git -C "$MFR" commit -qam "main moves"
+
+git -C "$MFR" merge --no-ff task-queue/mq-a -m merge >/dev/null 2>&1
+check "the scratch merge really did fail (otherwise nothing below is a test)" \
+  "failed" "$( git -C "$MFR" rev-parse --verify --quiet MERGE_HEAD >/dev/null 2>&1 && echo failed || echo merged )"
+
+# --- capture, taken at the correct moment: index still conflicted ------
+MFR_PATHS="$(capture_conflict_paths "$MFR")"
+check "the capture names the conflicting code path" \
+  "named" "$( [[ "$MFR_PATHS" == *"src/app.txt"* ]] && echo named || echo missing )"
+check "the capture names the modify/delete path in the queue dir" \
+  "named" "$( [[ "$MFR_PATHS" == *"queued/mq-a.md"* ]] && echo named || echo missing )"
+
+MFR_REC="$MFR_STATE/STUCK-20260810-121212-mq-a-merge-failed.md"
+write_merge_failed_record "$MFR_REC" "task-queue/mq-a" "$MFR_WT" \
+  "queued/mq-a.md" "20260810-121212" "$MFR/log.txt" "$MFR_PATHS" "$MFR"
+
+check "the written record quotes both conflicting paths" \
+  "both" "$( grep -q 'src/app.txt' "$MFR_REC" && grep -q 'queued/mq-a.md' "$MFR_REC" \
+             && echo both || echo incomplete )"
+# The paths must LEAD. A cause sentence read before the evidence is what
+# sent the 2026-08-07 investigation to the wrong subsystem.
+check "the conflicting paths appear ahead of any hypothesis about the cause" \
+  "paths-first" "$( [[ "$(grep -n 'Conflicting paths' "$MFR_REC" | cut -d: -f1)" \
+                       -lt "$(grep -n 'most likely a real content conflict' "$MFR_REC" | cut -d: -f1)" ]] \
+                    && echo paths-first || echo cause-first )"
+check "the cause is stated as a conditional hypothesis, not an assertion" \
+  "conditional" "$( grep -q 'If they are code' "$MFR_REC" && echo conditional || echo asserted )"
+
+# --- AC5: the record survives its own recovery steps ------------------
+# Step 3 of the recovery is `git worktree remove $WORKTREE`. Simulate it.
+mkdir -p "$MFR_WT"; printf 'x\n' > "$MFR_WT/scratch"
+rm -rf "$MFR_WT"
+check "the record still exists after recovery step 3 removes the worktree" \
+  "survived" "$( [[ -f "$MFR_REC" ]] && echo survived || echo destroyed )"
+check "the record is not written into the worktree at all" \
+  "outside" "$( [[ "$MFR_REC" != "$MFR_WT"/* ]] && echo outside || echo inside )"
+
+# --- AC4: the negative control ----------------------------------------
+# Move the capture to AFTER the abort — the placement the code had before
+# this fix — and the list comes back empty. This is the whole reason the
+# capture is the first statement in the failed-merge block: an empty list
+# reads exactly like a clean merge, so a record built from it is
+# confidently wrong rather than obviously broken.
+git -C "$MFR" merge --abort >/dev/null 2>&1
+MFR_LATE="$(capture_conflict_paths "$MFR")"
+check "NEGATIVE CONTROL: capturing after merge --abort finds no conflicting paths" \
+  "empty" "$( [[ "$MFR_LATE" == "(none reported — see the run log)" ]] && echo empty || echo "got:$MFR_LATE" )"
+MFR_REC_LATE="$MFR_STATE/STUCK-late-merge-failed.md"
+write_merge_failed_record "$MFR_REC_LATE" "task-queue/mq-a" "$MFR_WT" \
+  "queued/mq-a.md" "20260810-121212" "$MFR/log.txt" "$MFR_LATE" "$MFR"
+# Assert on the Conflicting-paths LINE, not the whole file: `queued/mq-a.md`
+# legitimately appears further down as the original queue file, so a
+# whole-file grep could never come back blind and would be decorative.
+MFR_LATE_LINE="$(grep 'Conflicting paths' "$MFR_REC_LATE")"
+check "NEGATIVE CONTROL: the late record's conflicting-paths line names neither path" \
+  "blind" "$( [[ "$MFR_LATE_LINE" != *"src/app.txt"* && "$MFR_LATE_LINE" != *"queued/mq-a.md"* ]] \
+              && echo blind || echo sighted )"
+# And the same line on the correctly-timed record DOES name them — the
+# positive control that proves the assertion above can distinguish the two.
+MFR_GOOD_LINE="$(grep 'Conflicting paths' "$MFR_REC")"
+check "POSITIVE CONTROL: the correctly-timed record's same line names both paths" \
+  "sighted" "$( [[ "$MFR_GOOD_LINE" == *"src/app.txt"* && "$MFR_GOOD_LINE" == *"queued/mq-a.md"* ]] \
+                && echo sighted || echo blind )"
+
+# --- AC4, the structural half: the CALL SITE stays before the abort ---
+# The two controls above prove the capture is timing-sensitive, but they
+# call it directly — so moving the call in run.sh's merge block below the
+# abort would leave them green while shipping the original bug. The whole
+# merge block is inline in the polling loop and cannot be invoked from
+# here, so assert its ordering statically instead, and prove the
+# assertion discriminates by running it against a copy with the two lines
+# swapped. A check that cannot fail is not a check.
+ordering_verdict() {  # <run.sh path>
+  local f="$1" cap abort
+  cap="$(grep -n 'CONFLICT_PATHS="\$(capture_conflict_paths' "$f" | head -1 | cut -d: -f1)"
+  abort="$(grep -n 'git -C "\$ROOT" merge --abort >>"\$LOG_FILE"' "$f" | head -1 | cut -d: -f1)"
+  if [[ -z "$cap" || -z "$abort" ]]; then echo "missing"
+  elif (( cap < abort )); then echo "before-abort"
+  else echo "after-abort"; fi
+}
+check "the conflict capture is called BEFORE git merge --abort in the merge block" \
+  "before-abort" "$(ordering_verdict "$SKILL_DIR/run.sh")"
+
+MFR_MUT="$TESTROOT/run-capture-moved.sh"
+MFR_CAP_LN="$(grep -n 'CONFLICT_PATHS="\$(capture_conflict_paths' "$SKILL_DIR/run.sh" | head -1 | cut -d: -f1)"
+MFR_AB_LN="$(grep -n 'git -C "\$ROOT" merge --abort >>"\$LOG_FILE"' "$SKILL_DIR/run.sh" | head -1 | cut -d: -f1)"
+awk -v cap="$MFR_CAP_LN" -v ab="$MFR_AB_LN" \
+  'NR==cap{saved=$0; next} {print} NR==ab{print saved}' \
+  "$SKILL_DIR/run.sh" > "$MFR_MUT"
+check "NEGATIVE CONTROL: the same check reports after-abort on a copy with the capture moved" \
+  "after-abort" "$(ordering_verdict "$MFR_MUT")"
+
+# ---- the committed stub points at a record that exists ---------------
+echo
+echo "_write_marker_stub — the committed stub names the real record location"
+
+MFS="$TESTROOT/marker-stub"; mkdir -p "$MFS"
+_write_marker_stub "$MFS/with.md" mq-a merge-failed 20260810-121212 \
+  "/repo/.task-queue/STUCK-20260810-121212-mq-a-merge-failed.md" "/repo/.task-queue/logs/x.log"
+check "with a record, the stub names that exact path" \
+  "named" "$( grep -q '/repo/.task-queue/STUCK-20260810-121212-mq-a-merge-failed.md' "$MFS/with.md" \
+              && echo named || echo missing )"
+# The old text was a hardcoded `STUCK-*.md under .task-queue/` glob. It
+# was wrong at every call site; a stub that still emits it has not been
+# threaded through.
+check "the stub no longer emits the hardcoded STUCK-*.md glob" \
+  "gone" "$( grep -q 'STUCK-\*.md' "$MFS/with.md" && echo present || echo gone )"
+
+_write_marker_stub "$MFS/without.md" mq-a merge-failed 20260810-121212 \
+  "" "/repo/.task-queue/logs/x.log"
+check "with no record, the stub says so outright instead of pointing at nothing" \
+  "disclaimed" "$( grep -q 'No forensic record was written' "$MFS/without.md" \
+                   && echo disclaimed || echo silent )"
+check "with no record, the stub names the run log as the only trail" \
+  "log-named" "$( grep -q '/repo/.task-queue/logs/x.log' "$MFS/without.md" \
+                  && echo log-named || echo missing )"
+check "with no record, the stub does not send the reader to .task-queue/ for a file" \
+  "no-pointer" "$( grep -q 'See \`' "$MFS/without.md" && echo pointer || echo no-pointer )"
+
 # ---- summary ---------------------------------------------------------
 echo
 if (( SKIP > 0 )); then

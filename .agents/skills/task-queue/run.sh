@@ -662,9 +662,31 @@ release_main_lock() {
 # Write the forensic-marker stub file (a few lines, deliberately
 # dissimilar to a task doc so git's rename detection won't pair the
 # original's deletion with it). $1 = absolute marker path,
-# $2 = slug basename, $3 = marker label, $4 = timestamp.
+# $2 = slug basename, $3 = marker label, $4 = timestamp,
+# $5 = the forensic record this failure actually wrote (empty when it
+# wrote none), $6 = the run log path (may be empty).
+#
+# $5 is passed in rather than described, because the stub is emitted from
+# SIX different merge-failed situations that leave three different kinds
+# of record: a $STATE_DIR/STUCK-*.md file, a worker-written
+# $WORKTREE/STUCK.md, or nothing at all. The old text hardcoded "See the
+# matching STUCK-*.md record under .task-queue/", which was wrong at
+# every one of them — the merge-failure record was written into the
+# worktree, and three sites write no record whatsoever. A pointer to a
+# file that does not exist ends an investigation in the wrong place, so
+# "no record was written" is a first-class answer here, not a fallback to
+# be tidied away later.
 _write_marker_stub() {
   local marker_path="$1" slug="$2" label="$3" ts="$4"
+  local record_path="${5:-}" log_path="${6:-}"
+  local trailer
+  if [[ -n "$record_path" ]]; then
+    trailer="See \`$record_path\` (and the run log) for the worktree, branch,
+and recovery steps."
+  else
+    trailer="No forensic record was written for this failure — the run log is the
+only forensic trail: \`${log_path:-see .task-queue/logs/}\`."
+  fi
   # `git rm` of the slug doc removes the queued/ directory too if it was
   # the last file there; recreate it so the stub write can't fail. (In
   # practice queued/README.md keeps the dir alive — this is belt-and-suspenders.)
@@ -676,8 +698,76 @@ The task-queue runner could not complete \`$slug.md\` ($label at $ts).
 The original task doc was removed; this stub records the forensic state
 so the runner's \`queued/\` scan skips the slug instead of re-picking it.
 
-See the matching \`STUCK-*.md\` record under \`.task-queue/\` (and the run
-log) for the worktree, branch, and recovery steps.
+$trailer
+EOF
+}
+
+# Capture the paths git reported as conflicted by a merge that has just
+# failed. MUST be called while that merge's index is still conflicted —
+# `git merge --abort` clears the unmerged entries, and a capture taken
+# afterwards returns an EMPTY list that reads exactly like "no conflicts
+# here", which is the failure mode this function exists to remove. The
+# merge-failed record is not written until well after the abort, so the
+# value has to be captured early and carried in a variable.
+#
+# Mirrors the WEDGE_PATHS idiom in the pre-merge wedge gate below, so the
+# file gains no new pattern.
+capture_conflict_paths() {  # <repo-root>
+  local repo="$1" paths
+  paths="$(git -C "$repo" diff --name-only --diff-filter=U 2>/dev/null \
+            | sort -u | paste -sd' ' - || true)"
+  [[ -z "$paths" ]] && paths="(none reported — see the run log)"
+  printf '%s' "$paths"
+}
+
+# Write the merge-failure forensic record.
+#
+# It goes to $STATE_DIR, NOT into the worktree, because its own recovery
+# steps tell the reader to `git worktree remove $WORKTREE` — which deleted
+# the document they were still reading, before its last step. The sibling
+# autostash-pop-conflict path already writes to the state dir for exactly
+# this reason.
+#
+# The conflicting paths lead, ahead of any hypothesis about the cause: on
+# 2026-08-07 two merge failures were `modify/delete` conflicts confined to
+# the queue directory and touching no code, while the record asserted "a
+# real content conflict between the task branch's changes and commits that
+# landed on main" — sending the investigation to a code overlap that
+# existed and was innocent.
+#
+# $1 = record path, $2 = branch, $3 = worktree, $4 = original queue-file
+# path relative to the repo root, $5 = timestamp, $6 = run log path,
+# $7 = conflicting paths (from capture_conflict_paths), $8 = repo root.
+write_merge_failed_record() {
+  local record_path="$1" branch="$2" worktree="$3" task_rel="$4"
+  local ts="$5" log_path="$6" conflict_paths="$7" repo_root="$8"
+  mkdir -p "$(dirname "$record_path")"
+  cat >"$record_path" <<EOF
+# Stuck — merge failed
+
+The task-queue runner could not merge \`$branch\` into \`main\`.
+
+- Conflicting paths: \`$conflict_paths\`
+- Worktree: \`$worktree\`
+- Branch:   \`$branch\`
+- Original queue file: \`$task_rel\` (removed on main; a \`.merge-failed.$ts.md\` stub marker was committed in its place)
+- Run log: \`$log_path\`
+
+Read the conflicting paths above before theorising. If they are code
+paths, this is most likely a real content conflict between the task
+branch's changes and commits that landed on main during the task. If they
+are only queue or marker files, it is a bookkeeping collision — the task's
+own work is probably fine and unrelated to the failure. (Main's WIP was
+autostashed before the merge attempt and has been restored.)
+
+To resolve:
+1. Inspect the conflict: \`git diff main...$branch\`
+2. \`cd $repo_root && git merge --no-ff $branch\` and resolve conflicts manually
+3. \`git worktree remove $worktree && git branch -d $branch\`
+4. On main, delete the \`.merge-failed.$ts.md\` stub marker file (the task is done).
+5. \`rm $record_path\` once you're done.
+
+(This record lives outside \`$worktree\`, so step 3 does not delete it.)
 EOF
 }
 
@@ -784,10 +874,17 @@ _restore_link_repairs() {
 # Self-locks via acquire_main_lock so it is safe to call from a sibling
 # runner's iteration AND from inside the already-locked merge block (the
 # re-entrant counter absorbs the nested acquire).
+#
+# $4 is optional: the forensic record this failure wrote, passed through
+# to _write_marker_stub so the committed stub names the file that
+# actually exists. Empty (or omitted) means no record was written, which
+# the stub then says outright rather than pointing at nothing. Only the
+# merge-failed path emits a stub, so $4 is meaningless for other labels.
 mark_queue_file() {
   local task_file="$1"
   local marker="$2"
   local ts="$3"
+  local record_path="${4:-}"
   local marked="${task_file%.md}.${marker}.${ts}.md"
   local rel_src rel_dst basename
   rel_src="${task_file#$ROOT/}"
@@ -824,7 +921,7 @@ mark_queue_file() {
       if ! git -C "$ROOT" rm --quiet "$rel_src" >/dev/null 2>&1; then
         _halt_on_mark_failure "$basename" "git rm failed staging the merge-failed marker deletion"
       fi
-      _write_marker_stub "$marked" "$basename" "$marker" "$ts"
+      _write_marker_stub "$marked" "$basename" "$marker" "$ts" "$record_path" "${LOG_FILE:-}"
       if ! git -C "$ROOT" add -- "$rel_dst" >/dev/null 2>&1; then
         git -C "$ROOT" restore --source=HEAD --staged --worktree -- "$rel_src" >/dev/null 2>&1 || true
         rm -f "$marked"
@@ -877,7 +974,7 @@ mark_queue_file() {
     # so it can be renamed back. Next iteration's HEAD scan skips it either way.
     if [[ "$marker" == "merge-failed" ]]; then
       rm -f "$task_file"
-      _write_marker_stub "$marked" "$basename" "$marker" "$ts"
+      _write_marker_stub "$marked" "$basename" "$marker" "$ts" "$record_path" "${LOG_FILE:-}"
     else
       mv "$task_file" "$marked"
     fi
@@ -2218,7 +2315,12 @@ while true; do
     echo "[task-queue]   - inspect $WORKTREE/STUCK.md, then 'git worktree remove --force"
     echo "[task-queue]     $WORKTREE' + 'git branch -D $BRANCH', then rename the queue file"
     echo "[task-queue]     back to .md to re-pick."
-    mark_queue_file "$TASK_FILE" "merge-failed" "$TS"
+    # The only record here is whatever the PREVIOUS run's worker left in
+    # the leftover worktree, and it may not exist at all — point at it
+    # only when it does.
+    LEFTOVER_RECORD=""
+    [[ -f "$WORKTREE/STUCK.md" ]] && LEFTOVER_RECORD="$WORKTREE/STUCK.md"
+    mark_queue_file "$TASK_FILE" "merge-failed" "$TS" "$LEFTOVER_RECORD"
     flock -u 9; exec 9>&-
     continue
   fi
@@ -2229,7 +2331,8 @@ while true; do
 
   if ! git worktree add -b "$BRANCH" "$WORKTREE" main >>"$LOG_FILE" 2>&1; then
     echo "[task-queue] git worktree add failed — see $LOG_FILE"
-    mark_queue_file "$TASK_FILE" "merge-failed" "$TS"
+    # No worktree was created, so no record exists — the log is all there is.
+    mark_queue_file "$TASK_FILE" "merge-failed" "$TS" ""
     flock -u 9; exec 9>&-
     continue
   fi
@@ -2542,7 +2645,7 @@ did NOT start its merge, to avoid compounding the wedge.
 EOF
           echo "[task-queue] FATAL: main is already wedged ($WEDGE_PATHS) — refusing to merge"
           echo "[task-queue] details: $STUCK_FILE"
-          mark_queue_file "$TASK_FILE" "merge-failed" "$TS"
+          mark_queue_file "$TASK_FILE" "merge-failed" "$TS" "$STUCK_FILE"
           release_main_lock
           flock -u 9; exec 9>&-
           continue
@@ -2579,7 +2682,8 @@ EOF
             echo "[task-queue] stashed main's WIP before merge"
           else
             echo "[task-queue] stash push failed — see $LOG_FILE; marking merge-failed"
-            mark_queue_file "$TASK_FILE" "merge-failed" "$TS"
+            # No merge was attempted and no record written — log only.
+            mark_queue_file "$TASK_FILE" "merge-failed" "$TS" ""
             release_main_lock
             flock -u 9; exec 9>&-
             continue
@@ -2595,7 +2699,8 @@ EOF
             OUR_STASH_REF=$(find_our_stash_ref "$STASH_MSG") || OUR_STASH_REF=""
             [[ -n "$OUR_STASH_REF" ]] && git -C "$ROOT" stash pop "$OUR_STASH_REF" >>"$LOG_FILE" 2>&1 || true
           fi
-          mark_queue_file "$TASK_FILE" "merge-failed" "$TS"
+          # No merge was attempted and no record written — log only.
+          mark_queue_file "$TASK_FILE" "merge-failed" "$TS" ""
           release_main_lock
           flock -u 9; exec 9>&-
           continue
@@ -2614,7 +2719,12 @@ EOF
         MERGE_MSG="task-queue: merge ${SLUG_BASE}"
         echo "[task-queue] merging $BRANCH into main (--no-ff)"
         if ! git -C "$ROOT" merge --no-ff "$BRANCH" -m "$MERGE_MSG" >>"$LOG_FILE" 2>&1; then
-          echo "[task-queue] merge failed on $BRANCH — aborting; leaving worktree for human"
+          # FIRST statement in this block, and it has to stay first: the
+          # abort below clears the unmerged index entries, and the record
+          # is not written until ~70 lines further down. Capturing any
+          # later yields an empty list that reads as "no conflicts".
+          CONFLICT_PATHS="$(capture_conflict_paths "$ROOT")"
+          echo "[task-queue] merge failed on $BRANCH ($CONFLICT_PATHS) — aborting; leaving worktree for human"
           # If `merge --abort` itself fails, main is stuck mid-merge:
           # MERGE_HEAD is set, the index has unmerged paths, and no
           # subsequent git write on main will succeed. Continuing past
@@ -2678,23 +2788,11 @@ EOF
               echo "[task-queue] WARNING: failed to pop autostash $OUR_STASH_REF; recover with: git -C $ROOT stash list / pop"
             fi
           fi
-          cat >"$WORKTREE/STUCK.md" <<EOF
-# Stuck — merge failed
-
-The task-queue runner could not merge \`$BRANCH\` into \`main\`. Most likely cause: a real content conflict between the task branch's changes and commits that landed on main during the task. (Main's WIP was autostashed before the merge attempt and has been restored.)
-
-- Worktree: \`$WORKTREE\`
-- Branch:   \`$BRANCH\`
-- Original queue file: \`$TASK_REL_PATH\` (removed on main; a \`.merge-failed.$TS.md\` stub marker was committed in its place)
-- Run log: \`$LOG_FILE\`
-
-To resolve:
-1. Inspect the conflict: \`git diff main...$BRANCH\`
-2. \`cd $ROOT && git merge --no-ff $BRANCH\` and resolve conflicts manually
-3. \`git worktree remove $WORKTREE && git branch -d $BRANCH\`
-4. On main, delete the \`.merge-failed.$TS.md\` stub marker file (the task is done).
-EOF
-          mark_queue_file "$TASK_FILE" "merge-failed" "$TS"
+          STUCK_FILE="$STATE_DIR/STUCK-${TS}-${SLUG}-merge-failed.md"
+          write_merge_failed_record "$STUCK_FILE" "$BRANCH" "$WORKTREE" \
+            "$TASK_REL_PATH" "$TS" "$LOG_FILE" "$CONFLICT_PATHS" "$ROOT"
+          echo "[task-queue] details: $STUCK_FILE"
+          mark_queue_file "$TASK_FILE" "merge-failed" "$TS" "$STUCK_FILE"
           release_main_lock
           flock -u 9; exec 9>&-
           continue

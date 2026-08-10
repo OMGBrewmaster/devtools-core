@@ -751,10 +751,26 @@ WIP. The lock is released on every exit path — success, merge conflict,
 and the autostash STUCK paths alike.
 
 If `git merge --no-ff` fails (real conflict between task branch and
-main's new commits), the runner aborts the merge, pops the autostash
-to restore the WIP, commits a rename of the queue file to
-`.merge-failed.<ts>.md`, writes `STUCK.md` into the worktree, and
-keeps the worktree.
+main's new commits), the runner captures the conflicting paths **before**
+aborting — `git merge --abort` clears the unmerged index entries, and a
+capture taken afterwards returns an empty list that reads exactly like
+"no conflicts" — then aborts the merge, pops the autostash to restore the
+WIP, commits a `.merge-failed.<ts>.md` stub marker in place of the queue
+file, writes `STUCK-<ts>-<slug>-merge-failed.md` under `.task-queue/`,
+and keeps the worktree.
+
+The record goes to `.task-queue/`, **not** into the worktree, because its
+own recovery steps tell you to `git worktree remove` — which used to
+delete the document you were still reading, one step before its last. The
+record leads with the conflicting paths and treats the cause as a
+hypothesis conditioned on them: a merge failure confined to `queued/` is a
+bookkeeping collision, not the code conflict the old text always asserted.
+
+Note that `merge-failed` is the one label that does **not** rename the
+queue file. It removes it and commits a deliberately dissimilar stub, so a
+re-merge on retry is a clean both-sides-delete rather than a rename
+collision. Every other label keeps the content-preserving rename, which is
+what lets a human rename it back to `.md` to re-queue.
 
 If `git stash pop` conflicts after a successful merge (your WIP and
 the merged result both touched the same lines), the merge has already
