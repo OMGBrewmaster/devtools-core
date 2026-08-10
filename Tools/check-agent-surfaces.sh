@@ -2,12 +2,14 @@
 # check-agent-surfaces.sh — does this repo still satisfy the harness-agnostic
 # conformance checklist?
 #
-# Mechanizes checks 1-9 of devtools/docs/harness-agnostic-repos.md ("Conformance
-# checklist"). Checks 10 (bootstrap reachable as a plain command) and 11 (root
-# sentinels probe AGENTS.md) are deliberately absent: both are judgments about
-# whether a script's *body* does the right thing, and the mechanical forms of
-# them ("a file named session-start.sh exists", "the string AGENTS.md appears in
-# a script") pass on a stub. The checklist itself stops at 9 for the same reason.
+# Mechanizes checks 1-9 and 13 of devtools/docs/harness-agnostic-repos.md
+# ("Conformance checklist"). Checks 10 (bootstrap reachable as a plain command)
+# and 11 (root sentinels probe AGENTS.md) are deliberately absent: both are
+# judgments about whether a script's *body* does the right thing, and the
+# mechanical forms of them ("a file named session-start.sh exists", "the string
+# AGENTS.md appears in a script") pass on a stub. Check 12 is mechanizable but
+# repo-local — the translation seam's path is per-repo knowledge — so it lives
+# in each consumer's own gate, not here; the standard's Status block says why.
 #
 # Usage: bash Tools/check-agent-surfaces.sh <repo-root>
 # The repo-root argument is REQUIRED: from this location a default would resolve
@@ -61,6 +63,9 @@ skips=0
 pass() { printf 'ok   %-2s %s\n' "$1" "$2"; }
 fail() { printf 'FAIL %-2s %s\n' "$1" "$2"; failures=$((failures + 1)); }
 skip() { printf 'SKIP %-2s %s\n' "$1" "$2"; skips=$((skips + 1)); }
+# A note is neither a pass nor a failure: it keeps a declared escape hatch
+# visible without letting it count for or against conformance.
+note() { printf 'note %-2s %s\n' "$1" "$2"; }
 
 bytes() { wc -c < "$1" | tr -d ' '; }
 
@@ -367,6 +372,94 @@ else
         fail 9 "SKILL.md spec violations — $bad9"
     fi
     [ "$skipped9" -gt 0 ] && skip 9 "$skipped9 SKILL.md not validated (uninitialized submodule)"
+fi
+
+# --- 13: SKILL.md bodies carry no harness-only mechanics ---------------------
+# The standard forbids harness-only mechanics in SKILL.md bodies — `$ARGUMENTS`,
+# slash-invocation syntax (`/name`), and the Claude-only frontmatter keys
+# `disable-model-invocation` and `context` — unless the skill's frontmatter
+# declares `compatibility`, the documented escape hatch. A flag suppressed by
+# that declaration is printed as a NOTE, not a pass and not a failure, so the
+# escape hatch stays visible; notes never move the exit code.
+#
+# False-positive tuning, deliberately chosen: fenced code blocks and inline
+# backtick spans are stripped before matching `$ARGUMENTS` and slash tokens,
+# because a skill QUOTING a mechanism is documentation, not use of it. That
+# strip is what makes the house form conformant — mentioning `$ARGUMENTS` in
+# backticks with a plain-prose gloss (the way devtools' own docs-audit skill
+# does) is the correct way to talk about the mechanism; writing it bare in
+# prose is what this check flags. The slash pattern additionally requires
+# start-of-line or whitespace before the slash and a lowercase skill-name
+# shape after it, so URL and path fragments (owner/repo, ../x, docs/standing.md)
+# never match. A bare absolute path in prose ("stored in /tmp") is the one
+# remaining false-positive shape, and the remedy is the same convention:
+# backticks for documentation, `compatibility` for genuine dependence.
+if [ "$canon" -eq 0 ]; then
+    pass 13 "no skills to check"
+else
+    bad13=""; checked13=0; skipped13=0; noted13=0
+    while IFS= read -r d; do
+        [ -n "$d" ] || continue
+        name=$(basename "$d")
+        skill="$d/SKILL.md"
+        if [ ! -r "$skill" ]; then
+            # Check 9 owns the unreadable-SKILL.md failure; 13 stays silent on
+            # it rather than double-reporting one root cause, and speaks only
+            # for the band 9 cannot evaluate either.
+            if in_uninitialized_submodule "$(canonical_skill_path "$name")"; then
+                skipped13=$((skipped13 + 1))
+            fi
+            continue
+        fi
+        checked13=$((checked13 + 1))
+
+        # Frontmatter, walked the way check 9 walks it: the lines between the
+        # opening --- and its closing ---, nothing else.
+        fm=$(awk '
+          NR == 1 { if ($0 != "---") exit; infm = 1; next }
+          infm && /^---[[:space:]]*$/ { exit }
+          infm { print }
+        ' "$skill")
+        declares_compat=0
+        grep -q '^compatibility:' <<<"$fm" && declares_compat=1
+        claude_keys=$(grep -oE '^(disable-model-invocation|context):' <<<"$fm" | sed 's/:$//' | sort -u | paste -sd' ' - || true)
+
+        # Body mechanics, matched with fenced blocks and inline code spans
+        # stripped — the tuning note above is the contract for this.
+        stripped=$(awk '
+          /^[[:space:]]*(```|~~~)/ { fence = !fence; next }
+          fence { next }
+          { line = $0; gsub(/`[^`]*`/, "", line); print line }
+        ' "$skill")
+        flags=""
+        # shellcheck disable=SC2016  # the single-quoted $ARGUMENTS is the literal
+        #                            # token being searched for — expansion is
+        #                            # exactly what must not happen to it.
+        grep -qF '$ARGUMENTS' <<<"$stripped" && flags='$ARGUMENTS'
+        slashes=$(grep -oE '(^|[[:space:]])/[a-z][a-z0-9-]+' <<<"$stripped" | sed 's/^[[:space:]]*//' | sort -u | paste -sd' ' - || true)
+        [ -n "$slashes" ] && flags="${flags}${flags:+; }slash-invocation(s): $slashes"
+        [ -n "$claude_keys" ] && flags="${flags}${flags:+; }Claude-only frontmatter: $claude_keys"
+
+        if [ -n "$flags" ]; then
+            if [ "$declares_compat" -eq 1 ]; then
+                note 13 "$name: $flags — declared compatibility"
+                noted13=$((noted13 + 1))
+            else
+                bad13="${bad13}${name}: $flags; "
+            fi
+        fi
+    done < <(find .agents/skills -mindepth 1 -maxdepth 1 ! -name '.*')
+
+    if [ -z "$bad13" ]; then
+        if [ "$noted13" -gt 0 ]; then
+            pass 13 "$checked13 SKILL.md bodies clean; $noted13 declared-compatibility note(s) above"
+        else
+            pass 13 "$checked13 SKILL.md bodies free of harness-only mechanics"
+        fi
+    else
+        fail 13 "harness-only mechanics with no compatibility declaration — $bad13"
+    fi
+    [ "$skipped13" -gt 0 ] && skip 13 "$skipped13 SKILL.md not checked (uninitialized submodule)"
 fi
 
 # --- verdict ------------------------------------------------------------------

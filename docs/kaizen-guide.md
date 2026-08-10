@@ -17,7 +17,7 @@ Kaizen (改善, "change for the better") emerged from post-WWII Japanese manufac
 These projects share three properties that amplify kaizen's leverage:
 
 - **Heterogeneous practitioners.** Humans, multiple AI agents, sub-agents, and tooling all participate in producing work. Friction lives at the seams between them — handoffs, prompt misreads, worktree races, context loss between sessions. None of those seams are visible in git history alone.
-- **The "machine" is documentation.** CLAUDE.md, slash commands, hooks, memory feedback files, and style guides are the executable specification of how we work. Improving any of them improves *every* future session — a single-line edit can compound across hundreds of subsequent runs.
+- **The "machine" is documentation.** Instruction files (`AGENTS.md`, bridged into `CLAUDE.md`), skills, gate scripts, memory feedback files, and style guides are the executable specification of how we work. Improving any of them improves *every* future session — a single-line edit can compound across hundreds of subsequent runs.
 - **High session volume with AI assistance.** Even small per-iteration friction (a wrong default, an ambiguous instruction, a misread convention) costs many minutes per day when multiplied across sessions. Catching and standardizing those small wins is where the leverage is.
 
 ### Scope
@@ -95,7 +95,7 @@ Kaizen runs on **Plan → Do → Check → Act**. The cycle maps to specific art
 
 | PDCA stage | Where it happens |
 |---|---|
-| **Plan** — define a way of working | CLAUDE.md, slash commands, hooks, memory feedback files, style guides, procedures |
+| **Plan** — define a way of working | `AGENTS.md` rules, skills, gate scripts, style guides, memory feedback files, procedures — and, Claude Code only, `CLAUDE.md` `@`-imports and hooks (the destination ladder below ranks these by portability) |
 | **Do** — apply that way of working | Day-to-day sessions; humans and AI agents act on the standards |
 | **Check** — capture friction when standards misfire | A new entry file in `journal/` (the `/session-end` skill is the per-session checkpoint for this) |
 | **Act** — change the standards so it doesn't recur | Patterns distilled into `patterns/`, then graduated into the Plan-stage artifacts |
@@ -127,7 +127,7 @@ An entry compounds when it lets a future reader (or a future AI session) recogni
 
 - **Name the root cause, not just the symptom.** The first observable thing was usually downstream of something earlier. *"Sub-agent committed to main instead of its worktree"* is a symptom; *"spawning a worktree-isolated agent from inside an existing worktree silently no-ops, so the child runs in the parent's tree"* is the cause. Cause-level entries graduate into rules; symptom-level ones don't.
 - **Be concrete about the situation.** A future reader matches against specifics — exact tool, specific flag, what the agent was told, what was expected vs. what happened. Vague entries (*"the prompt was confusing"*) don't help anyone match.
-- **The Lesson field is load-bearing.** It's the bridge between this entry and the rule that should exist. If you can phrase the Lesson as a one-line CLAUDE.md rule, hook condition, or style-guide bullet, the graduation path is already visible.
+- **The Lesson field is load-bearing.** It's the bridge between this entry and the rule that should exist. If you can phrase the Lesson as a one-line `AGENTS.md` rule, a gate check, or a style-guide bullet, the graduation path is already visible.
 
 **Where the entry goes**
 
@@ -155,12 +155,14 @@ Every ~2 weeks or after a sprint, review recent journal entries (the newest mont
 - **A recurring tendency whose countermeasure is statable today** — graduate it, in the same pass, under the contract below.
 - **A recurring tendency not yet statable** — create or update `patterns/<slug>.md` with evidence, mitigation, and status, and let it accumulate until it is.
 
-Graduation writes the lesson into its Plan-stage destination — typically one of:
-  - **CLAUDE.md** — project-wide rules and conventions read at every session start
-  - **Slash commands** in `.claude/commands/` — codified procedures invokable by name
-  - **Hooks** in `.claude/settings.json` — automation that fires without anyone having to remember
-  - **Style guides / procedures** — coding conventions and step-by-step playbooks
-  - **Memory feedback** in `~/.claude/.../memory/` — AI-specific corrections that persist across sessions
+Graduation writes the lesson into its Plan-stage destination. Destinations are enforcement points, ranked by portability — pick the highest rung that can actually enforce the rule:
+
+  - **A gate script** — runs identically in every harness and in CI, and is the hardest enforcement to bypass: the friction becomes a failing check, not advice a reader can skip. *Example: a `make check` stage that fails when the friction's signature reappears.*
+  - **A skill** under `.agents/skills/` — discovered by every spec-compliant harness; the home for a codified procedure invoked by name. *Example: the `kaizen-resolve` skill, which turns the problem-document close-out into a ritual.*
+  - **A rule in `AGENTS.md`**, or a doc it links — read at session start by every harness, so it is the default home for conventions and one-line rules. Style guides and procedures live at this rung. *Example: a bullet in `AGENTS.md` naming the convention, with the detail in a linked style guide.*
+  - **A `CLAUDE.md` `@`-import or a hook** — Claude Code only, acceptable in two shapes: as the *bridge* to neutral content (a universal rule in a linked doc gets a plain link in `AGENTS.md` and an `@`-import in `CLAUDE.md`, per the placement table in [`harness-agnostic-repos.md`](harness-agnostic-repos.md)), or as a consciously Claude-only enforcement where only a hook can do the work — a `PreToolUse` block that fires without anyone having to remember is genuinely that. What it may never be is the only home of a fleet rule. *Example: a SessionStart hook wrapping a plain bootstrap script that any harness can also run.*
+
+Memory feedback files sit off the ladder: they persist AI-specific corrections across sessions in one harness, which is exactly their job — but a fleet rule that lives only there is invisible everywhere else.
 
 Graduate in one pass, in this order: **write the destination, verify it from the reader's side, then delete the pattern file — and, in the same commit, the evidence entries it consumed.** Never the reverse, and never across two sessions. Git keeps the history, and a stale pattern competes with the live rule for attention. The cascade into the journal, and the citation check that decides which entries actually go, are in *The journal's lifecycle* above.
 

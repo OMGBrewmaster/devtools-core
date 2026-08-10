@@ -198,6 +198,19 @@ no standing rules**, with no error to say so.
   output and no error. Any workflow that depends on bootstrap having happened needs a
   turn-one self-check the agent can run by hand, documented where context assembly puts
   it rather than where the hook would have put it.
+- **The detection libraries beneath the scripts are part of this surface.** A bootstrap
+  script can be perfectly neutral while the library it sources asks
+  `CLAUDE_CODE_REMOTE` whether it is in a cloud sandbox — and in every other harness
+  the answer is silently *no*, so location-based policy (prod access stays out of
+  sandboxes) passes when it should not. The hook wrapper's translation only reaches
+  the process the hook launches; long-lived shells that source the library directly
+  never see it. So: **vendor environment variables are read in exactly one declared
+  seam file** (e.g. `scripts/lib/harness-signals.sh`), which translates them to neutral
+  `AGENT_*` names at call time — neutral wins when both are set — and every consumer
+  reads the neutral helper. Adding a harness is one fallback row in the seam, never a
+  new read site. The seam is also where the neutral name gets *defined*: name the
+  property (`AGENT_SESSION_REMOTE`: a recognized harness-managed remote sandbox), let
+  the seam own which vendor variable asserts it.
 
 ## Surface 4 — tool config
 
@@ -241,12 +254,14 @@ check, because it ends the investigation.
 | 9 | Every `SKILL.md` validates against the spec | Frontmatter a stricter harness will reject |
 | 10 | Bootstrap logic is reachable as a plain command | Non-Claude sessions start unbootstrapped |
 | 11 | Root sentinels in scripts probe for `AGENTS.md` | The sentinel tracks the bridge, not the source |
+| 12 | Vendor harness environment variables are read only in one declared translation seam; everything else consumes neutral `AGENT_*` names | Location/policy detection silently answers wrong in every other harness |
+| 13 | SKILL.md bodies carry no harness-only mechanics (`$ARGUMENTS`, slash-invocations, Claude-only frontmatter) unless the skill declares `compatibility` | A skill only one harness can run looks spec-valid |
 
-Checks 1–9 are mechanizable and belong in `make check` as a single stage. Note the shape
+Checks 1–9 and 13 are mechanizable and belong in `make check` as a single stage. Note the shape
 of check 7: a count comparison, not "the directory exists" — an empty `.agents/skills/`
 and a fully-populated one both exist.
 
-> **Status:** checks 1–9 are implemented as the shared gate
+> **Status:** checks 1–9 and 13 are implemented as the shared gate
 > [`Tools/check-agent-surfaces.sh`](../Tools/check-agent-surfaces.sh) — a harness-agnostic
 > script that any repo runs against its own root (`bash devtools/Tools/check-agent-surfaces.sh .`
 > in a consumer that mounts the tree at `devtools/`). The repo-root argument is **required**: a
@@ -256,8 +271,16 @@ and a fully-populated one both exist.
 > `Tools/check-agent-surfaces.sh`). Checks 10–11 stay manual by design — both are judgments
 > about a script's *body*, and their mechanical forms ("a file named `session-start.sh` exists",
 > "the string `AGENTS.md` appears in a script") pass on a stub; the script header states the
-> rationale. A repo stops depending on someone remembering this checklist the moment its CI
-> runs the gate.
+> rationale. Check 12 *is* mechanizable — word-match the vendor variables over tracked
+> files, allowlisting the seam, the vendor boundary (`.claude/`), tests, and Markdown — but
+> stays repo-local because the seam's path is per-repo knowledge; the reference
+> implementation enforces it as `scripts/agent/check-env-neutrality.sh`, a `make check`
+> stage beside the shared gate. One implementation warning, learned the hard way: scan
+> with `git grep` and branch on its exit code (0 match / 1 clean / >1 gate error), never a
+> piped `grep` with stderr suppressed — the first version of that script passed on a regex
+> parse error, a gate whose pass state was reachable by the failure it existed to detect.
+> A repo stops depending on someone remembering this checklist the moment its CI runs the
+> gate.
 
 ## Adopting this in an existing repo
 
@@ -276,7 +299,10 @@ and a fully-populated one both exist.
    phrasing from each body as you go.
 5. **Split the hooks.** Neutral body out to a plain script; vendor envelope stays behind.
 6. **Repoint functional references.** Sentinels, doc-navigation roots, links.
-7. **Verify in more than one harness.** In Claude Code: fresh session, probe a fact
+7. **Verify in more than one harness** — and record it in
+   [`harness-verification-log.md`](harness-verification-log.md), one dated entry per
+   harness per repo; the gate verifies artifacts, the log is the behavior evidence. In
+   Claude Code: fresh session, probe a fact
    stated only in `AGENTS.md`, confirm no import-approval dialog blocks a
    non-interactive session, confirm skills still invoke through the symlinks. Elsewhere:
    confirm the skills are discovered at all.
@@ -332,6 +358,9 @@ change.
 
 ## See also
 
+- [`harness-verification-log.md`](harness-verification-log.md) — the behavior half of
+  adoption step 7: dated records of what real sessions in non-Claude harnesses actually
+  did with each surface
 - [`signal-hygiene.md`](signal-hygiene.md) — how to know a step actually happened; the
   source of the checklist's "assert a positive property" rule
 - [`definition-of-done.md`](definition-of-done.md) — the gates surface, and where each

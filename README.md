@@ -1,6 +1,9 @@
 # devtools-core
 
-Shared Claude Code skills, documentation standards, and tooling for task
+Shared agent skills in the [Agent Skills](https://agentskills.io/specification)
+open-standard format — readable by Claude Code, Codex, Cursor, Copilot, and the
+rest of the ~40 harnesses that implement the spec — plus documentation standards
+and tooling for task
 management and documentation review. Read this if you have found the repo on its
 own, or if you are working in a project that mounts it as a submodule.
 
