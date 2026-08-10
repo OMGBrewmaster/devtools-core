@@ -13,7 +13,7 @@ apply to Unity game projects, web CMS projects, and shared infrastructure alike.
 - **See also**: End substantial docs with related links
 - **Structure**: Consistent across similar documents; sections should be self-contained
 - **AI-friendly**: Explicit file paths, no ambiguous pronouns, Mermaid for structural diagrams
-- **Navigation**: Every doc reachable from CLAUDE.md in two hops or fewer
+- **Navigation**: Every doc reachable from `AGENTS.md` (or `CLAUDE.md` where no `AGENTS.md` exists) in two hops or fewer
 - **Dates**: No dates in docs — no exceptions, task documents included. Git is the source of truth
 
 > **Quick reference**: For essential rules only, see
@@ -56,7 +56,7 @@ apply to Unity game projects, web CMS projects, and shared infrastructure alike.
 ### Shared goals
 
 - **Accurate**: Keep documentation synchronized with code
-- **Discoverable**: Make information findable within two hops from CLAUDE.md
+- **Discoverable**: Make information findable within two hops from `AGENTS.md` (or `CLAUDE.md` where no `AGENTS.md` exists)
 - **Maintainable**: Write documentation that is easy to update and hard to make stale
 
 ---
@@ -420,12 +420,12 @@ Anchor rules:
 
 ### Two-hop navigation rule
 
-**Every document should be reachable from CLAUDE.md within two hops** (CLAUDE.md -> index doc -> target doc). This ensures AI agents and humans can discover any document quickly.
+**Every document should be reachable from `AGENTS.md` within two hops** (`AGENTS.md` -> index doc -> target doc; root the check at `CLAUDE.md` where no `AGENTS.md` exists). This ensures AI agents and humans can discover any document quickly.
 
 When adding new documents:
 1. Ensure the document is linked from its directory's `README.md`
-2. Ensure that `README.md` is linked from a higher-level index or CLAUDE.md
-3. Verify the path: can you reach your new doc from CLAUDE.md in two clicks or fewer?
+2. Ensure that `README.md` is linked from a higher-level index or the root instruction file (`AGENTS.md`, or `CLAUDE.md` where no `AGENTS.md` exists)
+3. Verify the path: can you reach your new doc from `AGENTS.md` (or `CLAUDE.md` where no `AGENTS.md` exists) in two clicks or fewer?
 
 ### Bidirectional code-doc links
 
@@ -857,7 +857,7 @@ Current third-party libraries used in the project. Maintained by `/update-librar
 2. **Completeness**: Are there gaps in coverage?
 3. **Clarity**: Can a newcomer understand it?
 4. **AI-friendliness**: Is context explicit? Structure consistent?
-5. **Navigation**: Is it reachable from CLAUDE.md in two hops?
+5. **Navigation**: Is it reachable from `AGENTS.md` (or `CLAUDE.md` where no `AGENTS.md` exists) in two hops?
 
 ### Versioning
 

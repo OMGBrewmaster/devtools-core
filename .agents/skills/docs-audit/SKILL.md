@@ -26,7 +26,7 @@ Execute the following phases in order.
 
 1. Read the documentation style quickstart from the path resolved above. This is the reference standard for all checks.
 
-2. Read the project's `CLAUDE.md` if it exists. This is the navigation root for the two-hop reachability check.
+2. Read the project's root instruction file — `AGENTS.md`, or `CLAUDE.md` where no `AGENTS.md` exists. This is the navigation root for the two-hop reachability check.
 
 3. Enumerate all `.md` files under `docs/` recursively (with a file-glob lookup). **Exclude `_TEMPLATE.md`** files — they are templates, not auditable documents.
 
@@ -38,7 +38,7 @@ Execute the following phases in order.
    - `navigation` — Only navigation and link checks
    - `accuracy` — Only content accuracy checks
 
-6. Print a summary: "Found N documents to audit. Scope: [scope]. Index: [found/not found]. CLAUDE.md: [found/not found]."
+6. Print a summary: "Found N documents to audit. Scope: [scope]. Index: [found/not found]. AGENTS.md: [found/not found]."
 
 ---
 
@@ -50,7 +50,7 @@ Each analysis agent receives:
 - The full text of the documentation style quickstart (from Phase 1)
 - The list of documents to analyze (file paths)
 - The content of `docs/README.md` (if it exists)
-- The list of all links found in `CLAUDE.md` (if it exists)
+- The list of all links found in the root instruction file (`AGENTS.md`, or `CLAUDE.md` where no `AGENTS.md` exists)
 - The scope filter (which check categories to run)
 - The analysis protocol below
 
@@ -80,7 +80,7 @@ For each document, the subagent must read the file and perform the applicable ch
 
 1. **Listed in index** — If `docs/README.md` exists, check whether this document is referenced (linked) somewhere in the index file. Files under `<tasks>/` are exempt (task indexes are optional per the style guide).
 
-2. **Reachable from CLAUDE.md** — If `CLAUDE.md` exists, check whether the document is reachable within 2 hops. Hop 1: links in `CLAUDE.md`. Hop 2: links in the documents linked from `CLAUDE.md`. The analysis agent uses the pre-extracted link lists from Phase 1 to determine this. Files under `<tasks>/` are exempt.
+2. **Reachable from the root instruction file** — If the project's `AGENTS.md` exists, check whether the document is reachable within 2 hops. Hop 1: links in `AGENTS.md`. Hop 2: links in the documents linked from `AGENTS.md`. Where no `AGENTS.md` exists, root the check at `CLAUDE.md` instead. The analysis agent uses the pre-extracted link lists from Phase 1 to determine this. Files under `<tasks>/` are exempt.
 
 3. **Relative links resolve** — Extract all relative markdown links (`[text](path)`) from the document and verify each target file exists by globbing from the document's directory. Ignore external URLs (`http://`, `https://`) and anchor-only links (`#section`).
 
@@ -151,7 +151,7 @@ Compile all findings from Phase 2 (excluding issues already auto-fixed in Phase 
 
 1. **Missing scope statements** — List each file that lacks a scope statement after its H1.
 
-2. **Navigation gaps** — List documents not reachable from CLAUDE.md within 2 hops.
+2. **Navigation gaps** — List documents not reachable from the root instruction file (`AGENTS.md`, or `CLAUDE.md` where no `AGENTS.md` exists) within 2 hops.
 
 3. **Broken links** — List each broken link with the source file, the link text, and the expected target path.
 

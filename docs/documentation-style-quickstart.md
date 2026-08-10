@@ -13,7 +13,7 @@ explanations, templates, and edge cases.
 | Headings | Sentence case ("Getting started" not "Getting Started"), one `#` per file |
 | Code blocks | Always specify language (`csharp`, `typescript`, `bash`, etc.) |
 | Links | Relative paths, end substantial docs with "See also" section |
-| Navigation | Every doc reachable from CLAUDE.md in two hops or fewer |
+| Navigation | Every doc reachable from `AGENTS.md` (or `CLAUDE.md` where no `AGENTS.md` exists) in two hops or fewer |
 | Dates | No dates in docs — **no exceptions**, task documents included. Derive them from git |
 
 ## Scope statement (required)
@@ -110,7 +110,7 @@ Before committing documentation, verify:
 - [ ] File paths are explicit (not "the file")
 - [ ] No ambiguous pronouns ("this", "it") without clear antecedents
 - [ ] "See also" section links to related docs
-- [ ] Document is reachable from CLAUDE.md in two hops or fewer
+- [ ] Document is reachable from `AGENTS.md` (or `CLAUDE.md` where no `AGENTS.md` exists) in two hops or fewer
 - [ ] Structural diagrams use Mermaid; UI mockups can use ASCII
 - [ ] Complex diagrams have text descriptions
 - [ ] No dates anywhere, task documents included — derive them from git
