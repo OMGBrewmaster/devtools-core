@@ -12,8 +12,8 @@ if it exists, else `docs/planning/tasks/` — `run.sh` detects this itself. A
 repo opts into the queue by creating `<tasks>/queued/`; without that
 directory this skill doesn't apply.)
 
-This slash command is **documentation only** — it tells the user how to start
-the loop runner. The loop has to run at the shell level (a slash command can't
+This skill is **documentation only** — it tells the user how to start
+the loop runner. The loop has to run at the shell level (a skill body can't
 spawn fresh `claude` sessions to replace itself), so this skill never launches
 anything on its own. Print the section below verbatim and stop.
 
@@ -40,7 +40,7 @@ skill's own directory alongside this file.
 - The user can answer clarifying questions either in the runner's terminal,
   via `claude agents` from a separate terminal, or remotely at
   claude.ai/code / the Claude mobile app (the session appears under its
-  task-slug name; `AskUserQuestion` calls fire mobile pushes).
+  task-slug name; interactive question prompts fire mobile pushes).
 - If a session crashes or times out with the task file still in `queued/`,
   the loop renames the file `*.crashed.<timestamp>.md` so the queue doesn't
   loop forever on a poison task.
@@ -65,10 +65,11 @@ skill's own directory alongside this file.
 bash ${CLAUDE_SKILL_DIR}/run.sh
 ```
 
-(`${CLAUDE_SKILL_DIR}` resolves to this skill's directory —
+(`${CLAUDE_SKILL_DIR}` is Claude Code's substitution for this skill's directory —
 `devtools/.agents/skills/task-queue/`, also reachable as
 `.agents/skills/task-queue/` or `.claude/skills/task-queue/` via the
-per-skill symlinks.)
+per-skill symlinks; other harnesses resolve the skill's own directory by
+their own convention.)
 
 The runner **auto-detaches**: it re-execs itself under `setsid script`,
 returns immediately, and prints the detached pid plus the runner-log path
@@ -120,7 +121,7 @@ full pattern.
 ## More
 
 - The repo's task-queue procedure doc, where one exists (e.g. `docs/procedures/development/task-queue.md`) — full end-to-end pipeline orientation
-  (`/task-create` → `/task-finalize` → `queued/` → autonomous runner) plus
+  (`task-create` → `task-finalize` → `queued/` → autonomous runner) plus
   troubleshooting and known limitations.
 - [`README.md`](./README.md) — operator details (logs, timeouts,
   multi-Claude-sandbox safety, blocked-task handling), bundled alongside this

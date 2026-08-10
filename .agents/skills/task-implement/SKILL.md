@@ -6,26 +6,26 @@ description: Implement a prepared task in the current session — re-verify the 
 # Implement Task
 
 Take a prepared task and build it here, in this session, with the human
-watching. This is the supervised middle of the pipeline: `/task-next`
-recommends what to work on and offers `/task-finalize`, `/task-finalize`
+watching. This is the supervised middle of the pipeline: the `task-next` skill
+recommends what to work on and offers `task-finalize`; `task-finalize`
 verifies the brief and stamps `finalized-at`, and this skill executes it. Each
 step offers the next; none invokes it. The autonomous task-queue runner does
 the same job unattended, on the same discipline — see [Relationship to the
 task-queue worker](#relationship-to-the-task-queue-worker).
 
-**Arguments**: `$ARGUMENTS` — optional task filename (with or without `.md`) or
+**Arguments**: optional task filename (with or without `.md`) or
 full path. If omitted, Phase 1 helps pick one.
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — run `/task-create` to scaffold one." and stop.
-- **Queue**: `<tasks>/queued/` (when it exists) belongs to the autonomous task-queue runner. Never pick from it — a task sitting there is already claimed, and implementing it here races a worker that may be mid-flight on the same brief. If the user names a queued task explicitly, say that and offer `/task-move` to pull it back into a human bucket first.
+- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
+- **Queue**: `<tasks>/queued/` (when it exists) belongs to the autonomous task-queue runner. Never pick from it — a task sitting there is already claimed, and implementing it here races a worker that may be mid-flight on the same brief. If the user names a queued task explicitly, say that and offer the `task-move` skill to pull it back into a human bucket first.
 - **Definition of done**: `<tasks>/definition-of-done.md` where the file exists — the project-wide gates that no individual brief restates.
 - **Creation dates** are not recorded in the documents — derive them from git: `git log --diff-filter=A --follow --format=%cs -- <task-file>`. That yields a bare date, and git completes a bare date with the **current clock time**, so `--since=<that date>` silently drops anything committed earlier on the boundary day. Append `T00:00:00` wherever the value feeds `--since`.
 
 ## The shared execution discipline
 
-**Read `.claude/skills/task-queue/execution-discipline.md` before Phase 3.**
+**Read the `task-queue` skill's `execution-discipline.md` (`../task-queue/execution-discipline.md`) before Phase 3.**
 Its five blocks are the discipline this skill runs on:
 
 | Block | What it governs | Used in |
@@ -34,7 +34,7 @@ Its five blocks are the discipline this skill runs on:
 | `recommended-solution` | Recommended solution is advisory, acceptance criteria are contract, deviations named in commit bodies | Phase 4 |
 | `definition-of-done` | Finding `definition-of-done.md` and satisfying every applicable gate | Phase 4, Phase 6 |
 | `ac-sentinels` | Edits to the acceptance list stay inside `AC:BEGIN` / `AC:END` | Phase 4 |
-| `ask-with-briefing` | Briefing the human before any `AskUserQuestion` call | throughout |
+| `ask-with-briefing` | Briefing the human before any question-prompt call | throughout |
 
 That file is single-sourced because the task-queue worker runs on the same five
 blocks — the runner expands them into the prompt it dispatches. It is written
@@ -52,7 +52,7 @@ invert, and only these four:
 | 1 | Does not tick acceptance criteria — the runner deletes the whole brief | Ticks each criterion inside the sentinels as it is verifiably met | The human is watching progress in a file that stays on disk until the end |
 | 2 | Never removes the brief; the runner runs `git rm` afterwards | Deletes the brief itself, in the completing commit — but only once the human confirms (Phase 6d) | There is no runner here to do it, and a human who can be asked should be the one to call it finished |
 | 3 | Is forbidden final-state narration ("do not add a final state verification Bash call") | Closes with a report of what was implemented and how it was verified | The runner inspects the branch directly; a human cannot |
-| 4 | Moves a blocked brief into `queued/blocked/` | Leaves it in its bucket with `status: blocked` and an appended `## Blocked` section | `queued/blocked/` exists in one repo only; the in-place shape is what `/session-land` and `/task-status` read |
+| 4 | Moves a blocked brief into `queued/blocked/` | Leaves it in its bucket with `status: blocked` and an appended `## Blocked` section | `queued/blocked/` exists in one repo only; the in-place shape is what the `session-land` and `task-status` skills read |
 
 Two more differences follow from the setting rather than inverting a rule.
 **Work happens in the current working tree**, not a worktree (Phase 4). And an
@@ -69,12 +69,12 @@ Anywhere else the in-session flow would diverge from the worker's discipline,
 
 ## Phase 1 — Pick the task
 
-If `$ARGUMENTS` resolves to a real task file under `<tasks>/{now,soon,later,never}/`, use it. Print the resolved path.
+If the argument resolves to a real task file under `<tasks>/{now,soon,later,never}/`, use it. Print the resolved path.
 
 Otherwise, with no usable argument:
 
-1. If a `/task-next` skill exists in this repo (`.claude/skills/task-next/`), stop and offer it: "No task named. Run `/task-next` to pick one, then re-run `/task-implement <task>`." Do not invoke it — the pipeline offers, it never chains.
-2. Where that skill is absent, list the `now/` bucket (falling back to `soon/` when `now/` is empty) with each task's title, `effort`, `priority`, and acceptance-criteria progress, and ask which to implement. This is a pick-one capture, so `AskUserQuestion` is appropriate — brief first, per the `ask-with-briefing` block.
+1. If the `task-next` skill exists in this repo (check the `.claude/skills/task-next/` bridge into the canonical `.agents/skills/` tree), stop and offer it: "No task named. Run `task-next` to pick one, then re-run `task-implement <task>`." Do not invoke it — the pipeline offers, it never chains.
+2. Where that skill is absent, list the `now/` bucket (falling back to `soon/` when `now/` is empty) with each task's title, `effort`, `priority`, and acceptance-criteria progress, and ask which to implement. This is a pick-one capture, so a question prompt is appropriate — brief first, per the `ask-with-briefing` block.
 
 Refuse a task whose `dependencies:` are unmet, naming the blocking task, unless the user overrides.
 
@@ -83,7 +83,7 @@ Refuse a task whose `dependencies:` are unmet, naming the blocking task, unless 
 1. Record the session's starting commit: `git rev-parse HEAD`. Phase 6 needs it to prove work landed.
 2. **Screen for open questions before claiming anything.** If the brief has a
    non-empty `## Open questions` section, stop here and write nothing: print the
-   questions and recommend `/task-finalize`. Do not resolve them — a design
+   questions and recommend `task-finalize`. Do not resolve them — a design
    question answered unilaterally mid-implementation is exactly the decision that
    should have been the human's, and finalize is where it gets recorded.
 3. Set `status: in-progress` in the brief's YAML frontmatter.
@@ -91,13 +91,13 @@ Refuse a task whose `dependencies:` are unmet, naming the blocking task, unless 
 The screen precedes the claim deliberately. The original order claimed first and
 refused in Phase 3, reverting the marker on the way out — so it wrote a marker it
 was always going to undo, and an interruption inside that window leaves a false
-`in-progress` on a task nobody touched: precisely the stale marker `/task-status`
+`in-progress` on a task nobody touched: precisely the stale marker the `task-status` skill
 exists to hunt. Refusing before writing removes the window rather than
 documenting it. (Found by this skill's third live run, 2026-08-01.)
 
 This skill is that field's first automated writer. The marker is deliberately
 durable: a run that is interrupted — context exhausted, session closed, machine
-slept — leaves it behind, and `/task-status` exists to find those. It clears
+slept — leaves it behind, and the `task-status` skill exists to find those. It clears
 only two ways, both of them endings: completion deletes the whole brief
 (Phase 6), and blocking rewrites it to `blocked` (Phase 5).
 
@@ -111,7 +111,7 @@ validated. **No implementation edit happens before it finishes.** Apply the
 
 **Tier A — open questions present.** Screened in Phase 2, before the claim, so a
 brief reaching this phase has none. If one turns up here anyway, the screen was
-skipped: stop, print the questions, recommend `/task-finalize`, and revert the
+skipped: stop, print the questions, recommend `task-finalize`, and revert the
 Phase 2 claim on the way out.
 
 **Tier B — `finalized-at` present.** Run
@@ -149,17 +149,17 @@ verification inline before writing code:
 you checked, what was still true, what had moved, and which commits moved it.
 "No drift found" is a valid and useful result — but it has to be stated, not
 assumed. If verification shows the task **no longer applies**, stop and say so
-rather than manufacturing work; offer `/task-audit`.
+rather than manufacturing work; offer the `task-audit` skill.
 
 If it shows the task is **already done** — the work is in the tree, the criteria
 are met, and only the brief was never closed — say so and go straight to
 **Phase 6**. Do not manufacture work, and do not hand the state back as someone
 else's problem: closing it is this skill's job. That is the same finished-but-not-
-closed state `/task-status` reports and offers `/task-implement` for; this is
+closed state the `task-status` skill reports and offers `task-implement` for; this is
 where the offer lands.
 
 If drift is large enough to change the design rather than just the anchors,
-that is a finalize-shaped problem: stop and recommend `/task-finalize`.
+that is a finalize-shaped problem: stop and recommend `task-finalize`.
 
 ## Phase 4 — Implement
 
@@ -192,8 +192,8 @@ brief and do not leave it silently half-done:
 3. Leave the file in its current bucket.
 4. Commit whatever partial work exists along with the brief edit, then stop and tell the user what is needed.
 
-This is the same shape `/session-land` writes when it lands an interrupted
-task, so the two are readable by the same eye and by `/task-status`. "Hard" is
+This is the same shape the `session-land` skill writes when it lands an interrupted
+task, so the two are readable by the same eye and by the `task-status` skill. "Hard" is
 not blocked — only "cannot proceed without input" is.
 
 ## Phase 6 — Complete
@@ -284,7 +284,7 @@ reader the work is finished; the human is the one entitled to say that.
 
 Ask by ending your turn with a plain-text question when the human is at the
 keyboard: it fires no push notification and the answer is one word. Reserve
-`AskUserQuestion` for when they have walked away, and brief them first per the
+a question prompt for when they have walked away, and brief them first per the
 `ask-with-briefing` block.
 
 Do not ask this question early. An offer to close made before 6a–6c have run

@@ -11,11 +11,11 @@ validate the top pick against HEAD, and recommend exactly one — with the reaso
 plain language, one or two alternates, and an explicit reason for every obvious
 contender that lost.
 
-`/task-list` inventories, `/task-reprioritize` ranks in order to shape buckets, and
-`/task-audit <task>` judges a task you have already chosen. This skill is the one that
+`task-list` inventories, `task-reprioritize` ranks in order to shape buckets, and
+`task-audit <task>` judges a task you have already chosen. This skill is the one that
 chooses.
 
-**Arguments**: `$ARGUMENTS` — one optional free-form constraint in plain language
+**Arguments**: one optional free-form constraint in plain language
 ("30m", "tired", "no Unity", "nothing that needs the CMS running"). There is no flag
 grammar; read it the way a person would.
 
@@ -24,13 +24,13 @@ starts nothing. It ends by *offering* the next command. The user runs it.
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — run `/task-create` to scaffold one." and stop.
+- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — run `task-create` to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` (when it exists) holds tasks the autonomous runner has claimed. Read it as context for area-coupling only — never recommend a queued task; the runner owns it. In repos without it, skip everything that mentions it.
-- **Bucket definitions**: [`../task-create/bucket-definitions.md`](../task-create/bucket-definitions.md), relative to this skill's directory — what each bucket means, shared with every other task skill so they cannot drift. If that path does not resolve (a repo whose `task-create` symlink is missing), read `devtools/.claude/skills/task-create/bucket-definitions.md` and say you fell back.
+- **Bucket definitions**: [`../task-create/bucket-definitions.md`](../task-create/bucket-definitions.md), relative to this skill's directory — what each bucket means, shared with every other task skill so they cannot drift. If that path does not resolve (a repo whose `task-create` symlink is missing), read `devtools/.agents/skills/task-create/bucket-definitions.md` and say you fell back.
 - **`never/` is never a candidate**: parked tasks are excluded from ranking. Do not read them as candidates.
-- **Ranking rubric**: [`../task-reprioritize/ranking-rubric.md`](../task-reprioritize/ranking-rubric.md), relative to this skill's directory — the same rules `/task-reprioritize` applies, so the two cannot drift. If that path does not resolve (a repo whose `task-reprioritize` symlink is missing), read `devtools/.claude/skills/task-reprioritize/ranking-rubric.md` and say you fell back.
+- **Ranking rubric**: [`../task-reprioritize/ranking-rubric.md`](../task-reprioritize/ranking-rubric.md), relative to this skill's directory — the same rules `task-reprioritize` applies, so the two cannot drift. If that path does not resolve (a repo whose `task-reprioritize` symlink is missing), read `devtools/.agents/skills/task-reprioritize/ranking-rubric.md` and say you fell back.
 - **Focus document**: `<tasks>/focus.md` — the owner's statement of what matters right now. Format, staleness rule, and degradation are specified in the rubric's [Focus weighting](../task-reprioritize/ranking-rubric.md#focus-weighting-tasksfocusmd) section.
-- **Creation dates** are not stored in task documents — there is no `Created:` field. Derive them from the file's first commit using the command [the rubric defines](../task-reprioritize/ranking-rubric.md#readiness-and-evidence-signals), so this skill and `/task-reprioritize` cannot drift on date format.
+- **Creation dates** are not stored in task documents — there is no `Created:` field. Derive them from the file's first commit using the command [the rubric defines](../task-reprioritize/ranking-rubric.md#readiness-and-evidence-signals), so this skill and `task-reprioritize` cannot drift on date format.
 
 ## Scope: this repository, and nothing else
 
@@ -79,7 +79,7 @@ writing one is a small step.
 
 ## Phase 2 — Build the candidate pool
 
-Glob `<tasks>/now/*.md`. Exclude `README.md`, `_TEMPLATE.md`, `.gitkeep`, and `focus.md`
+List `<tasks>/now/*.md` with a file-glob lookup. Exclude `README.md`, `_TEMPLATE.md`, `.gitkeep`, and `focus.md`
 (it sits at the tasks root, not in a bucket, so a bucket glob will not reach it — but say
 so if you ever glob the root).
 
@@ -114,7 +114,7 @@ Assign each candidate a **readiness tier**:
 | Tier | Test | Reads as |
 |---|---|---|
 | **1 — finalized** | `finalized-at:` present and resolves (`git cat-file -e <sha>^{commit} 2>/dev/null`), `## Open questions` absent or empty, acceptance criteria are real items rather than `<angle-bracket placeholders>` | Ready to execute |
-| **2 — ready, unfinalized** | Passes every Tier 1 test except `finalized-at:` | Workable, but needs `/task-finalize` to lock the design and stamp the verification point |
+| **2 — ready, unfinalized** | Passes every Tier 1 test except `finalized-at:` | Workable, but needs `task-finalize` to lock the design and stamp the verification point |
 | **3 — open questions** | `## Open questions` has non-comment content | Needs a decision conversation before code |
 | **4 — placeholder-shaped** | Goal or acceptance criteria are still template placeholders | Needs writing before it needs doing |
 
@@ -191,7 +191,7 @@ typed that value, and silently dropping it is how the field becomes even less tr
   which requires a quotable sentence and carries that quote into the ranking rationale.
   Do not restate the rule here; both skills read it from there so they cannot drift.
 - **It outranks inference drawn from bucket placement**, including placement that focus
-  itself drove. `/task-reprioritize` weights buckets by focus at each rebalance, so a
+  itself drove. `task-reprioritize` weights buckets by focus at each rebalance, so a
   bucket carries the focus *as it stood then*; this skill reads the focus as it stands
   now, and the fresher read wins (rubric § Focus weighting). The owner saying "this month
   is the importer" beats a task sitting in `now/` since March — and beats a task that
@@ -212,7 +212,7 @@ typed that value, and silently dropping it is how the field becomes even less tr
 
 ### Constraint weighting
 
-Fold `$ARGUMENTS` into the judgment; there is no lookup table, but the shape is:
+Fold the argument into the judgment; there is no lookup table, but the shape is:
 
 | Constraint | Reads as |
 |---|---|
@@ -263,8 +263,8 @@ is a deliberate probe whose failure you handle — `git cat-file -e <sha>^{commi
 possibly-dangling stamp — `2>/dev/null` is fine. Nowhere else.
 
 **If validation fails, do not recommend the task.** Surface it as stale: name exactly what
-drifted, with the commits responsible, and recommend `/task-audit <task>` (to re-ground it)
-or `/task-finalize <task>` (to re-verify and re-decide). Then fall through to the
+drifted, with the commits responsible, and recommend `task-audit <task>` (to re-ground it)
+or `task-finalize <task>` (to re-verify and re-decide). Then fall through to the
 next-ranked candidate and validate that one instead. Cap at three fall-throughs; if all
 three are stale, report all three as stale — a queue whose top three briefs have rotted is
 the finding, and recommending the fourth would bury it.
@@ -319,9 +319,9 @@ Give each a real reason. "Lower priority" is not a reason; "blocked on
 
 Never invoke anything. End the turn in prose with one offer, chosen by the pick's tier:
 
-- **Tier 1 (finalized)** — "Ready to work: `/task-implement <slug>`." Where that skill is
+- **Tier 1 (finalized)** — "Ready to work: `task-implement <slug>`." Where that skill is
   not available in this repo, say the task is ready and stop.
-- **Tier 2, 3, or 4** — "This needs `/task-finalize <slug>` first" — and say why in one
+- **Tier 2, 3, or 4** — "This needs `task-finalize <slug>` first" — and say why in one
   clause: to settle the open questions, to write the acceptance criteria, or (Tier 2) to
   verify the brief against HEAD and stamp it. Offer the command; do not run it.
 
@@ -336,7 +336,7 @@ An empty answer is a failed answer. If the pool is empty, or every candidate is 
 say what is true and what would change it — never "no tasks found" alone.
 
 **No task files anywhere** — "`<tasks>/` holds no tasks in `now/`, `soon/`, or `later/`."
-Offer `/task-create`. If `never/` holds tasks, say how many, and note they are excluded by
+Offer `task-create`. If `never/` holds tasks, say how many, and note they are excluded by
 convention rather than by accident.
 
 **Every candidate blocked** — print the blocked set as a table, then recommend the
@@ -349,14 +349,14 @@ Nothing is workable right now. N candidates, all blocked:
 |------|-----------|-----------------|
 | <slug> | dependency `<other-slug>` (unfinished, in `soon/`) | Work `<other-slug>` first — it is unblocked |
 | <slug> | `status: blocked` — "<reason quoted from the document>" | <the concrete step the reason implies> |
-| <slug> | `## Scope` names `<path>`, which does not exist at HEAD | `/task-audit <slug>` — the brief has drifted |
+| <slug> | `## Scope` names `<path>`, which does not exist at HEAD | `task-audit <slug>` — the brief has drifted |
 ```
 
 Then make a recommendation anyway: if some blocker is itself a task in this repo, **that
 task is the pick** — run it back through Phase 5 and present it normally, noting that it
 was selected as the unblocker. If every blocker is external (waiting on a person, a
 credential, an upstream release), name each one and say plainly that the queue needs new
-work rather than more selection — offer `/task-create`.
+work rather than more selection — offer `task-create`.
 
 **Every candidate gated** (rubric § Startability) — the same shape, with the gate in
 place of the blocker: one row per candidate naming the precondition and what would
@@ -372,6 +372,6 @@ Say the backfill happened and continue normally.
 ## See also
 
 - [`ranking-rubric.md`](../task-reprioritize/ranking-rubric.md) — the shared ranking rules and the `<tasks>/focus.md` specification
-- [`../task-reprioritize/SKILL.md`](../task-reprioritize/SKILL.md) — `/task-reprioritize`, which applies the same rubric to bucket placement
-- [`../task-audit/SKILL.md`](../task-audit/SKILL.md) — `/task-audit <task>`, the depth-first pre-flight for a task this skill flagged as stale
-- [`../task-finalize/SKILL.md`](../task-finalize/SKILL.md) — `/task-finalize`, the command this skill offers for anything below Tier 1
+- [`../task-reprioritize/SKILL.md`](../task-reprioritize/SKILL.md) — `task-reprioritize`, which applies the same rubric to bucket placement
+- [`../task-audit/SKILL.md`](../task-audit/SKILL.md) — `task-audit <task>`, the depth-first pre-flight for a task this skill flagged as stale
+- [`../task-finalize/SKILL.md`](../task-finalize/SKILL.md) — `task-finalize`, the command this skill offers for anything below Tier 1

@@ -9,12 +9,12 @@ Summarize all tasks in this repo's tasks directory.
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — run `/task-create` to scaffold one." and stop.
+- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` (when it exists) is owned by the autonomous task-queue runner — list it separately, read-only, and never count it toward the human buckets.
 
 ## Phase 1 — Find Tasks
 
-Glob for all `.md` files in `<tasks>/now/`, `<tasks>/soon/`, `<tasks>/later/`, and `<tasks>/never/`. Exclude `README.md` and `_TEMPLATE.md` files.
+List all `.md` files in `<tasks>/now/`, `<tasks>/soon/`, `<tasks>/later/`, and `<tasks>/never/` (with a file-glob lookup). Exclude `README.md` and `_TEMPLATE.md` files.
 
 If no task files are found, print "No tasks found in `<tasks>/`." and stop.
 

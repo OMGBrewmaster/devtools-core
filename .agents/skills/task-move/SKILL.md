@@ -7,11 +7,11 @@ description: Move a task between priority buckets
 
 Move a task file between priority buckets in this repo's tasks directory.
 
-**Arguments**: $ARGUMENTS — `[task-filename] [target-bucket]` (e.g., `fix-login-crash now`).
+**Arguments**: `[task-filename] [target-bucket]` (e.g., `fix-login-crash now`).
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — run `/task-create` to scaffold one." and stop.
+- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` exists only in repos running the autonomous task-queue runner. Where it is absent, `queued` is not a valid bucket and Phase 3 never applies.
 
 ## Phase 1 — Find the Task
@@ -20,11 +20,11 @@ Search for the task file across all buckets (`now/`, `soon/`, `later/`, `never/`
 
 If the task is not found, list available tasks and ask the user to pick one.
 
-If no task name was provided in `$ARGUMENTS`, list all tasks and ask which one to move.
+If no task name was provided in the arguments, list all tasks and ask which one to move.
 
 ## Phase 2 — Validate Target
 
-If no target bucket was provided in `$ARGUMENTS`, ask where to move it. Valid targets: `now`, `soon`, `later`, `never` — plus `queued` in repos where `<tasks>/queued/` exists.
+If no target bucket was provided in the arguments, ask where to move it. Valid targets: `now`, `soon`, `later`, `never` — plus `queued` in repos where `<tasks>/queued/` exists.
 
 If the task is already in the target bucket, print "Task is already in `{bucket}/`." and stop.
 
@@ -43,12 +43,12 @@ Tasks in `queued/` are picked up by the autonomous task-queue runner with no fur
 | 5 | Effort field chosen | The frontmatter `effort:` value is one of `small` / `medium` / `large`. Fails if the value is the template placeholder (`<small \| medium \| large>`). |
 | 6 | Open questions resolved | `## Open questions` is absent or contains only whitespace/comments |
 | 7 | Priority and dependencies well-formed | The frontmatter `priority:` value is one of `high` / `medium` / `low`, and `dependencies:` is a (possibly empty) list of kebab-case task slugs — warn if a listed slug matches no existing task file or queue history. |
-| 8 | Context verified at HEAD | The frontmatter `finalized-at:` value is a valid commit SHA in this repo (`git cat-file -e <sha>^{commit}`). Only `/task-finalize`'s verify-against-HEAD phase stamps it — so a task failing this rule needs `/task-finalize`, not a hand-added SHA. |
+| 8 | Context verified at HEAD | The frontmatter `finalized-at:` value is a valid commit SHA in this repo (`git cat-file -e <sha>^{commit}`). Only the `task-finalize` skill's verify-against-HEAD phase stamps it — so a task failing this rule needs `task-finalize`, not a hand-added SHA. |
 
 If any rule fails:
 
 1. Print the specific failures.
-2. Print: "Refusing to move into `queued/`. Run `/task-finalize {task-name}` to resolve the issues interactively (it walks open questions via `AskUserQuestion`, validates the same rules, and offers to do this move for you)."
+2. Print: "Refusing to move into `queued/`. Run `task-finalize {task-name}` to resolve the issues interactively (it walks open questions via an interactive question prompt, validates the same rules, and offers to do this move for you)."
 3. Stop without moving.
 
 If all rules pass, proceed.
@@ -66,7 +66,7 @@ git add <tasks>/{source-bucket}/{task-name}.md \
 
 Print: "Moved `{task-name}.md` from `{source-bucket}/` to `{target-bucket}/`."
 
-If the target was `queued/`, also print: "The task-queue runner will pick this up on its next poll cycle (if running). Start the runner with `bash .claude/skills/task-queue/run.sh`."
+If the target was `queued/`, also print: "The task-queue runner will pick this up on its next poll cycle (if running). Start the runner with `bash .claude/skills/task-queue/run.sh` (the `.claude/skills/` path is the Claude Code bridge into the canonical `.agents/skills/` tree)."
 
 ## Phase 6 — Ship it (docs-only fast path)
 
@@ -83,7 +83,7 @@ exists for:
   the outgoing range carries non-docs changes, so name them and leave the
   commit local for the normal flow.
 - **Cloud session** (git proxy, PR flow): nothing to do here — note that
-  `/ship` carries docs-only PRs to merge without a review pause under the
+  the `ship` skill carries docs-only PRs to merge without a review pause under the
   maintainer's standing delegation (2026-07-29).
 
 No such AGENTS.md section → stop at Phase 5; shipping stays the session's

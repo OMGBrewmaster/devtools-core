@@ -9,12 +9,12 @@ Audit task documents in this repo's tasks directory against the current codebase
 
 This command checks task **status and relevance** — not formatting or style, and
 not bucket placement: all bucket moves and deletions belong to
-`/task-reprioritize`. This audit only **records signals** that bear on priority
+the `task-reprioritize` skill. This audit only **records signals** that bear on priority
 and hands them off.
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — run `/task-create` to scaffold one." and stop.
+- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` (when it exists) holds tasks claimed by the autonomous runner — exclude it from the audit; the runner re-verifies its own briefs at pickup.
 - **Creation dates** are not recorded in the documents — derive them from git: `git log --diff-filter=A --follow --format=%cs -- <task-file>`. That yields a bare date, and git completes a bare date with the **current clock time**, so `--since=<that date>` silently drops anything committed earlier on the boundary day. Append `T00:00:00` wherever the value feeds `--since`.
 
@@ -31,7 +31,7 @@ Execute the following phases in order.
 
 1. Read `<tasks>/README.md` to refresh on the task document format and conventions.
 
-2. Glob for all `.md` files under `<tasks>/` (bucket folders: `now/`, `soon/`, `later/`, `never/`). **Exclude README files, `_TEMPLATE.md`, `focus.md`, and everything under `queued/`** — the first three describe the folder or the repo's current focus, not tasks; the queue is the runner's. `focus.md` in particular sits at the tasks root beside the buckets and is prose, not a task document: audited as one it fails every structural check it was never meant to pass.
+2. List all `.md` files under `<tasks>/` (with a file-glob lookup; bucket folders: `now/`, `soon/`, `later/`, `never/`). **Exclude README files, `_TEMPLATE.md`, `focus.md`, and everything under `queued/`** — the first three describe the folder or the repo's current focus, not tasks; the queue is the runner's. `focus.md` in particular sits at the tasks root beside the buckets and is prose, not a task document: audited as one it fails every structural check it was never meant to pass.
 
 3. Read every task document. For each, extract:
    - YAML frontmatter (`status`, `effort`, `priority`, `dependencies`); the creation date comes from `git log --diff-filter=A --follow` when needed
@@ -56,18 +56,18 @@ Execute the following phases in order.
 
 ## Phase 2 — Analyze Tasks
 
-Launch **up to 3 parallel subagents** (Agent tool, `general-purpose`), each analyzing a batch of tasks. Divide task documents roughly evenly across subagents. If there are 3 or fewer tasks — or this is a single-task audit — use a single subagent at full depth.
+Launch **up to 3 parallel analysis agents**, each analyzing a batch of tasks. Divide task documents roughly evenly across agents. If there are 3 or fewer tasks — or this is a single-task audit — use a single analysis agent at full depth.
 
-Each subagent receives:
+Each analysis agent receives:
 - The full text of its assigned task documents
 - The git log and diff stat from Phase 1
 - The analysis protocol below
 
 ### Per-task analysis protocol
 
-For each task, the subagent must:
+For each task, the analysis agent must:
 
-1. **Codebase evidence** — Glob and Grep for files, classes, features, and patterns the task describes. Note what exists, what's missing, and what has changed.
+1. **Codebase evidence** — search (glob and grep) for files, classes, features, and patterns the task describes. Note what exists, what's missing, and what has changed.
 
 2. **Git history evidence** — Scope history to the task, not a fixed window:
    - The task file's own history: `git log --follow --oneline -- <task file>` (when it was created, moved between buckets, last revised).
@@ -83,20 +83,20 @@ For each task, the subagent must:
 5. **Context freshness** — Are file paths mentioned in the task still valid? Have referenced dependencies, tools, or features changed? Are open questions now answerable from the codebase? Does the **In brief** paragraph still match reality — flag it if the findings contradict its plain-language story.
 
 6. **Reprioritization signals** — Record (do **not** act on) evidence that bears
-   on bucket placement, for `/task-reprioritize` to consume:
+   on bucket placement, for the `task-reprioritize` skill to consume:
    - The task appears fully complete (all acceptance criteria met)
    - The task's core problem has been mostly solved
    - The task's context has shifted enough to warrant re-evaluation
    - The task blocks, or is blocked by, other work (name it) — including a `dependencies:` entry that has now landed
    - A documented parking/deferral rationale no longer holds
 
-Each subagent returns structured per-task analysis with evidence for every finding.
+Each analysis agent returns structured per-task analysis with evidence for every finding.
 
 ---
 
 ## Phase 3 — Apply Safe Updates
 
-Using the Edit tool, apply the following **safe, non-destructive** updates to task documents:
+Using a text-editing tool, apply the following **safe, non-destructive** updates to task documents:
 
 ### Auto-apply
 
@@ -135,9 +135,9 @@ Compare each task's frontmatter `status:` against the evidence from Phase 2. Det
 
 Valid status values are: `not-started`, `in-progress`, `blocked`. (Completed tasks are deleted, not status-updated — see Phase 5.)
 
-If any task's documented status differs from its actual status, compile the list of proposed changes. Use `AskUserQuestion` with `multiSelect: true` to present them. Each option is one proposed change — label format: `task-name: "old-status" → "new-status"`, description is a one-line evidence summary.
+If any task's documented status differs from its actual status, compile the list of proposed changes and ask with a multi-select prompt. Each option is one proposed change — label format: `task-name: "old-status" → "new-status"`, description is a one-line evidence summary.
 
-For each change the user accepts, update the frontmatter `status:` field in the task document using the Edit tool.
+For each change the user accepts, update the frontmatter `status:` field in the task document using the text-editing tool.
 
 If there are no status mismatches, skip ahead.
 
@@ -148,7 +148,7 @@ If there are no status mismatches, skip ahead.
 For tasks where **all** acceptance criteria are now checked off (either previously or in Phase 3):
 
 - Compile an evidence summary explaining why the task appears complete
-- Flag the task for removal with evidence (the deletion itself happens via `/task-reprioritize`)
+- Flag the task for removal with evidence (the deletion itself happens via the `task-reprioritize` skill)
 - State which bucket folder the task is in
 
 For tasks that are **nearly complete** (most criteria checked, a few remaining):
@@ -188,7 +188,7 @@ For each nearly-done task: file path, remaining items, and what's needed to fini
 The Phase 2 signals that bear on bucket placement (complete, mostly solved,
 blocking/blocked, landed dependencies, invalidated parking rationale), each with
 its evidence. Do not propose or apply moves here — close by suggesting
-`/task-reprioritize` if any signals were found.
+the `task-reprioritize` skill if any signals were found.
 
 ### Cross-Task Dependency Updates
 Notes on inter-task references that have changed.

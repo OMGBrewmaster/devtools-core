@@ -9,15 +9,16 @@ Audit all documentation in `docs/` against the shared style guide — checking s
 
 This command checks documentation **quality and discoverability** — not content correctness or feature completeness.
 
-**Arguments**: $ARGUMENTS — optional `[all|style|navigation|accuracy]`, naming which phase
-to run. Default is `all`.
+**Arguments**: optional `[all|style|navigation|accuracy]`, naming which phase
+to run. Default is `all`. (The token `$ARGUMENTS` later in the body is Claude Code's
+substitution for the invocation's arguments — read it as whatever your harness passed.)
 
 Execute the following phases in order.
 
 ## Repo conventions (resolve first)
 
 - **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. Task documents are exempt from several checks, so a wrong answer here silently audits them under the wrong rules — resolve it once, before Phase 1. If neither exists the repo simply has no task documents; audit everything and let the exemptions below never fire. Do not stop — unlike the `task-*` skills, this one has work to do either way.
-- **Style guide**: `devtools/docs/documentation-style-quickstart.md` if it exists (the usual case — `.claude/skills` resolves through the devtools submodule), else `docs/style-guides/documentation-style-quickstart.md`, else `docs/documentation-style-quickstart.md` (auditing the devtools repo itself, where there is no nested `devtools/`). First hit wins.
+- **Style guide**: `devtools/docs/documentation-style-quickstart.md` if it exists (the usual case — the project's skill mounts resolve through the devtools submodule), else `docs/style-guides/documentation-style-quickstart.md`, else `docs/documentation-style-quickstart.md` (auditing the devtools repo itself, where there is no nested `devtools/`). First hit wins.
 
 ---
 
@@ -27,7 +28,7 @@ Execute the following phases in order.
 
 2. Read the project's `CLAUDE.md` if it exists. This is the navigation root for the two-hop reachability check.
 
-3. Glob for all `.md` files under `docs/` recursively. **Exclude `_TEMPLATE.md`** files — they are templates, not auditable documents.
+3. Enumerate all `.md` files under `docs/` recursively (with a file-glob lookup). **Exclude `_TEMPLATE.md`** files — they are templates, not auditable documents.
 
 4. Identify `docs/README.md` (the documentation index) if it exists. This is used for index-completeness checks.
 
@@ -43,9 +44,9 @@ Execute the following phases in order.
 
 ## Phase 2 — Analyze Documents
 
-Launch **up to 3 parallel subagents** (Agent tool, `general-purpose`), each analyzing a batch of documents. Divide documents roughly evenly across subagents. If there are 3 or fewer documents, use a single subagent.
+Launch **up to 3 parallel analysis agents**, each analyzing a batch of documents. Divide documents roughly evenly across agents. If there are 3 or fewer documents, use a single analysis agent.
 
-Each subagent receives:
+Each analysis agent receives:
 - The full text of the documentation style quickstart (from Phase 1)
 - The list of documents to analyze (file paths)
 - The content of `docs/README.md` (if it exists)
@@ -79,7 +80,7 @@ For each document, the subagent must read the file and perform the applicable ch
 
 1. **Listed in index** — If `docs/README.md` exists, check whether this document is referenced (linked) somewhere in the index file. Files under `<tasks>/` are exempt (task indexes are optional per the style guide).
 
-2. **Reachable from CLAUDE.md** — If `CLAUDE.md` exists, check whether the document is reachable within 2 hops. Hop 1: links in `CLAUDE.md`. Hop 2: links in the documents linked from `CLAUDE.md`. The subagent uses the pre-extracted link lists from Phase 1 to determine this. Files under `<tasks>/` are exempt.
+2. **Reachable from CLAUDE.md** — If `CLAUDE.md` exists, check whether the document is reachable within 2 hops. Hop 1: links in `CLAUDE.md`. Hop 2: links in the documents linked from `CLAUDE.md`. The analysis agent uses the pre-extracted link lists from Phase 1 to determine this. Files under `<tasks>/` are exempt.
 
 3. **Relative links resolve** — Extract all relative markdown links (`[text](path)`) from the document and verify each target file exists by globbing from the document's directory. Ignore external URLs (`http://`, `https://`) and anchor-only links (`#section`).
 
@@ -87,11 +88,11 @@ For each document, the subagent must read the file and perform the applicable ch
 
 ### Accuracy checks (scope: `all` or `accuracy`)
 
-1. **File path references** — Find file paths in backticks (patterns like `path/to/file.ext` or `directory/name/`) and verify they exist using Glob. Only check paths that look like project-relative file or directory references (contain `/` and end with a file extension or `/`). This is best-effort — skip ambiguous references.
+1. **File path references** — Find file paths in backticks (patterns like `path/to/file.ext` or `directory/name/`) and verify they exist on disk with a file lookup. Only check paths that look like project-relative file or directory references (contain `/` and end with a file extension or `/`). This is best-effort — skip ambiguous references.
 
 2. **Code block path references** — Within code blocks, look for file paths and verify they exist. This is best-effort and should not flag paths that are clearly example/template values.
 
-Each subagent returns structured per-document findings with:
+Each analysis agent returns structured per-document findings with:
 - File path
 - Issue category (style, navigation, or accuracy)
 - Issue type (e.g., `missing-scope-statement`, `broken-link`, `skipped-heading-level`)
@@ -102,7 +103,7 @@ Each subagent returns structured per-document findings with:
 
 ## Phase 3 — Apply Safe Fixes
 
-Using the Edit tool, apply the following **safe, non-destructive** auto-fixes to documents:
+Using a text-editing tool, apply the following **safe, non-destructive** auto-fixes to documents:
 
 ### Auto-apply
 
@@ -166,9 +167,9 @@ Compile all findings from Phase 2 (excluding issues already auto-fixed in Phase 
 
 Omit any category that has no findings.
 
-After presenting the grouped findings, use `AskUserQuestion` with `multiSelect: true` to let the user select which categories to address. Each option is a category name with a count — label format: `Category name (N issues)`, description is a one-line summary.
+After presenting the grouped findings, ask the user which categories to address with a multi-select prompt (each option a category name with a count — label format: `Category name (N issues)`, description a one-line summary).
 
-For each category the user selects, present the specific issues and proposed fixes. Use `AskUserQuestion` to confirm each fix before applying it with the Edit tool.
+For each category the user selects, present the specific issues and proposed fixes. Confirm each fix with the user before applying it with the editing tool.
 
 If the user selects no categories (or there are no findings), skip ahead to Phase 5.
 

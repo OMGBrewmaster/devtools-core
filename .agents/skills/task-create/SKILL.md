@@ -7,7 +7,7 @@ description: Create a new task from the template
 
 Create a new task document in this repo's tasks directory.
 
-**Arguments**: $ARGUMENTS — optional `[task-name]` in kebab-case.
+**Arguments**: optional `[task-name]` in kebab-case.
 
 ## Repo conventions (resolve first)
 
@@ -28,6 +28,9 @@ one. Each repo exposes it at the familiar path as a **symlink**, never a copy:
 (For `docs/tasks/` that is `../../.claude/skills/task-create/_TEMPLATE.md`; for
 `docs/planning/tasks/` it is `../../../.claude/skills/task-create/_TEMPLATE.md`.)
 
+The `.claude/skills/` paths on this page are the subject matter — the symlink convention this skill
+exists to maintain, and the Claude Code bridge into the canonical `.agents/skills/` tree.
+
 `.claude/skills/task-create/` is itself shared from `devtools/`, so one edit there
 reaches every repo — the same way the skill body does. A copy would drift; a symlink
 cannot. If you find a *regular file* at `<tasks>/_TEMPLATE.md`, that repo has fallen
@@ -46,14 +49,14 @@ default location):
 
   Verify it resolves (`cat docs/tasks/_TEMPLATE.md`) before continuing — a dangling
   link means the shared skills are not available in this repo.
-- `docs/tasks/now/`, `docs/tasks/soon/`, `docs/tasks/later/`, `docs/tasks/never/` each with a one-liner `README.md`. Write each one-liner from [`bucket-definitions.md`](bucket-definitions.md) and point at it for the definition of record — the one-liner is a courtesy summary, not a second definition. Write that pointer as the repo-root-relative path in prose (`devtools/.claude/skills/task-create/bucket-definitions.md`), **not** a markdown relative link: devtools sits outside the tasks tree, so a `../../..` hyperlink renders broken on GitHub even where it resolves on disk. (Do **not** create `queued/` — an autonomous queue is a deliberate per-repo opt-in, not scaffolding.)
+- `docs/tasks/now/`, `docs/tasks/soon/`, `docs/tasks/later/`, `docs/tasks/never/` each with a one-liner `README.md`. Write each one-liner from [`bucket-definitions.md`](bucket-definitions.md) and point at it for the definition of record — the one-liner is a courtesy summary, not a second definition. Write that pointer as the repo-root-relative path in prose (`devtools/.agents/skills/task-create/bucket-definitions.md`), **not** a markdown relative link: devtools sits outside the tasks tree, so a `../../..` hyperlink renders broken on GitHub even where it resolves on disk. (Do **not** create `queued/` — an autonomous queue is a deliberate per-repo opt-in, not scaffolding.)
 
 If the user declines, stop.
 
 ## Phase 2 — Gather Info
 
-1. If no task name was provided in `$ARGUMENTS`, ask for one (kebab-case, action-verb-first, e.g., `fix-login-crash`).
-2. Ask which bucket to place the task in. Options: `now`, `soon` (default), `later`. (`never/` is not offered at creation — a task is parked there later via `/task-move`; see [`bucket-definitions.md`](bucket-definitions.md). Tasks heading for autonomous execution are still created in a normal bucket first — `/task-finalize` moves them to `queued/` once they pass readiness.)
+1. If no task name was provided in the arguments, ask for one (kebab-case, action-verb-first, e.g., `fix-login-crash`).
+2. Ask which bucket to place the task in. Options: `now`, `soon` (default), `later`. (`never/` is not offered at creation — a task is parked there later via the `task-move` skill; see [`bucket-definitions.md`](bucket-definitions.md). Tasks heading for autonomous execution are still created in a normal bucket first — the `task-finalize` skill moves them to `queued/` once they pass readiness.)
 3. Ask for a brief goal statement (1-2 sentences starting with an action verb).
 4. Ask for effort estimate: `small`, `medium` (default), or `large`.
 5. Priority defaults to `medium` and dependencies to `[]` — don't ask unless the user signals urgency (then offer `high`/`medium`/`low`) or names other tasks this one must wait for (then record their slugs as dependencies).
@@ -83,22 +86,22 @@ Print: "Created `<tasks>/{bucket}/{task-name}.md`."
 
 ## Phase 5 — Offer to Finalize
 
-`/task-finalize` walks open questions interactively, verifies the task's claims against HEAD, and validates readiness — and, in repos with a queue, offers to move the task to `queued/` for the autonomous runner.
+The `task-finalize` skill walks open questions interactively, verifies the task's claims against HEAD, and validates readiness — and, in repos with a queue, offers to move the task to `queued/` for the autonomous runner.
 
-Use `AskUserQuestion` (single-select, `multiSelect: false`) to ask:
+Ask a single-select question (one option only) to offer it:
 
-- **question**: "Run `/task-finalize` now to verify against HEAD and resolve open questions?" (append "— and possibly promote to `queued/`" only in repos with a queue)
+- **question**: "Run `task-finalize` now to verify against HEAD and resolve open questions?" (append "— and possibly promote to `queued/`" only in repos with a queue)
 - **header**: "Finalize now?"
 - options:
-  - `Yes — finalize now` — invoke the `/task-finalize` skill on this task immediately, passing the new file path as the argument. (Recommended when the task is small and the open questions are already in your head.)
-  - `No — leave it here` — stop. The user will run `/task-finalize` later.
+  - `Yes — finalize now` — invoke the `task-finalize` skill on this task immediately, passing the new file path as the argument. (Recommended when the task is small and the open questions are already in your head.)
+  - `No — leave it here` — stop. The user will run `task-finalize` later.
 
-If the user picks Yes, hand off to `/task-finalize <path-to-new-task>`. If No, stop.
+If the user picks Yes, hand off to `task-finalize <path-to-new-task>`. If No, stop.
 
 ## Phase 6 — Ship it (docs-only fast path)
 
 Runs only when Phase 5 ended with "No — leave it here" (a finalize hand-off
-reaches the same offer through `/task-finalize`'s own closing phase). If the
+reaches the same offer through `task-finalize`'s own closing phase). If the
 repo's AGENTS.md documents a docs-only shipping convention (a "Shipping
 docs-only changes" section naming a predicate script), offer to ship the new
 task now:
@@ -109,7 +112,7 @@ task now:
   (e.g. `scripts/docs-only-diff.sh origin/main`). Exit 0 → push, and read the
   push's own output as the verification. Any other exit → do **not** push:
   name what else the outgoing range carries and leave the commit local.
-- **Cloud session** (git proxy, PR flow): note that `/ship` carries docs-only
+- **Cloud session** (git proxy, PR flow): note that the `ship` skill carries docs-only
   PRs to merge without a review pause under the maintainer's standing
   delegation (2026-07-29).
 

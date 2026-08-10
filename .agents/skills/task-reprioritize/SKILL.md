@@ -7,21 +7,21 @@ description: Rebalance the task queue toward a healthy shape in a single decide-
 
 Rebalance the task queue toward the healthy shape defined in [`../task-create/bucket-definitions.md`](../task-create/bucket-definitions.md) § Queue shape, in a single pass. Decide-then-apply instead of asking the user move-by-move: the plan is printed before any move, and staged changes are cheap to revert.
 
-This command owns **all bucket moves and deletions** — `/task-audit` verifies what the documents say but never moves them. This skill is lightweight: it uses **task-file metadata and bucket state** — no codebase analysis, no test execution. When an `/task-audit` run earlier in this conversation produced reprioritization signals, consume them as evidence (see Phase 2); if the documents themselves look stale, run `/task-audit` first.
+This command owns **all bucket moves and deletions** — the `task-audit` skill verifies what the documents say but never moves them. This skill is lightweight: it uses **task-file metadata and bucket state** — no codebase analysis, no test execution. When a `task-audit` run earlier in this conversation produced reprioritization signals, consume them as evidence (see Phase 2); if the documents themselves look stale, run `task-audit` first.
 
 This skill **stages** changes via `git mv` / `git rm` but does **NOT** auto-commit.
 
-**The ranking rules live in [`ranking-rubric.md`](ranking-rubric.md)**, next to this file — area inference, in-flight pinning, readiness and evidence signals, the N/S/L placement categories, the A/B/C coupling tiers, the tiebreakers, and focus weighting. `/task-next` reads the same rubric to pick a single task to start, so the two skills rank identically by construction. Read the rubric before Phase 1; the phases below cite its sections rather than restating them.
+**The ranking rules live in [`ranking-rubric.md`](ranking-rubric.md)**, next to this file — area inference, in-flight pinning, readiness and evidence signals, the N/S/L placement categories, the A/B/C coupling tiers, the tiebreakers, and focus weighting. The `task-next` skill reads the same rubric to pick a single task to start, so the two skills rank identically by construction. Read the rubric before Phase 1; the phases below cite its sections rather than restating them.
 
 **This pass is weighted by `<tasks>/focus.md` throughout**, not as a closing report line. Every phase below says how focus affected it, and the rubric's [Focus weighting](ranking-rubric.md#focus-weighting-tasksfocusmd) section is the single specification of what matches, how much it weighs, and what to do when the document is stale or absent. Focus modifies the mechanics and never overrides them — in particular it never promotes a task whose remaining work cannot start.
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — run `/task-create` to scaffold one." and stop.
+- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` (when it exists) holds tasks the autonomous runner is executing — read-only context for this skill, never a source or target of moves. In repos without it, skip everything that mentions it.
-- **Bucket definitions**: [`../task-create/bucket-definitions.md`](../task-create/bucket-definitions.md), relative to this skill's directory — what each bucket means and the shape target this skill enforces, shared with every other task skill so they cannot drift. If that path does not resolve (a repo whose `task-create` symlink is missing), read `devtools/.claude/skills/task-create/bucket-definitions.md` and say you fell back.
+- **Bucket definitions**: [`../task-create/bucket-definitions.md`](../task-create/bucket-definitions.md), relative to this skill's directory — what each bucket means and the shape target this skill enforces, shared with every other task skill so they cannot drift. If that path does not resolve (a repo whose `task-create` symlink is missing), read `devtools/.agents/skills/task-create/bucket-definitions.md` and say you fell back.
 - **Focus document**: `<tasks>/focus.md` — the owner's statement of what matters right now, at the tasks root beside `README.md`. It sits outside every bucket directory, so a bucket glob never reaches it and it is never a candidate for a move. Format, matching, weight, and the staleness branches are all specified in [`ranking-rubric.md` § Focus weighting](ranking-rubric.md#focus-weighting-tasksfocusmd).
-- **`never/` is excluded from rebalancing**: nothing is promoted out of or demoted into `never/` by shape rules. Parking and unparking are deliberate acts, via `/task-move`.
+- **`never/` is excluded from rebalancing**: nothing is promoted out of or demoted into `never/` by shape rules. Parking and unparking are deliberate acts, via the `task-move` skill.
 
 ---
 
@@ -50,7 +50,7 @@ every focus judgment below.
 
 ### Inventory the buckets
 
-Glob for all `.md` files under:
+List all `.md` files under:
 
 - `<tasks>/now/`
 - `<tasks>/soon/`
@@ -108,7 +108,7 @@ Compute current counts and compare to the **soft targets** [`../task-create/buck
 
 Tolerance allows ±1 around the target so a 4-task `now/` is not noisily flagged. Beyond ±1, flag the bucket.
 
-Also evaluate the **readiness signals** and the **evidence-based signals** in [`ranking-rubric.md` § Readiness and evidence signals](ranking-rubric.md#readiness-and-evidence-signals) — the first set read off the task documents themselves, the second off a `/task-audit` run earlier in this conversation (or dated audit notes embedded in the documents). Both sets always override bucket-shape moves; the rubric's Action column is written in this skill's bucket vocabulary and applies here literally.
+Also evaluate the **readiness signals** and the **evidence-based signals** in [`ranking-rubric.md` § Readiness and evidence signals](ranking-rubric.md#readiness-and-evidence-signals) — the first set read off the task documents themselves, the second off a `task-audit` run earlier in this conversation (or dated audit notes embedded in the documents). Both sets always override bucket-shape moves; the rubric's Action column is written in this skill's bucket vocabulary and applies here literally.
 
 Then assess the **focus** the Phase 1 read produced, and compute its **workability**: of
 the in-focus tasks, how many are not `blocked`. That count is the signal the whole
@@ -273,7 +273,7 @@ For each deletion, run:
 git rm <tasks>/<bucket>/<task>.md
 ```
 
-Apply all moves directly. **Do not call `AskUserQuestion`.** If the user disagrees with the plan they can `git checkout` the staged changes — that's cheaper than a per-move round-trip.
+Apply all moves directly. **Do not call a question prompt.** If the user disagrees with the plan they can `git checkout` the staged changes — that's cheaper than a per-move round-trip.
 
 If the plan is empty (shape is at-target and no overrides apply), print "Queue is at-target — no moves applied." and stop.
 
@@ -369,5 +369,5 @@ Note `replace-hand-rolled-schema-updates-with-migrations`: the `**Not now:**` li
 
 ## Notes
 
-- This skill replaces the older per-symptom heuristic that proposed one move at a time behind an `AskUserQuestion` round-trip. The single-pass, decide-then-apply design is intentional (and a recorded user preference): if the queue is misshapen by 3, the user should not have to answer 3 prompts — the plan is printed before moves so they can `git checkout` if they disagree.
+- This skill replaces the older per-symptom heuristic that proposed one move at a time behind a question-prompt round-trip. The single-pass, decide-then-apply design is intentional (and a recorded user preference): if the queue is misshapen by 3, the user should not have to answer 3 prompts — the plan is printed before moves so they can `git checkout` if they disagree.
 - Frontmatter `dependencies:` is execution-order data (in queue repos, a dependent is never claimed before its dependency merges). This skill reads it as context but still infers *area* coupling from Scope paths.

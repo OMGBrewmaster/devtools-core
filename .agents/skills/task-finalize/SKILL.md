@@ -9,11 +9,11 @@ Prepare a task for execution by a later session (or the autonomous runner): veri
 
 **Run this on the strongest model available.** Finalization is the moment it earns its keep: this skill locks in the decisions and the design a later worker will execute, and a weak call here is inherited by every session that picks the task up. If you are on a weaker model, say so and offer to switch before Phase 2.5. (This was a `model:` frontmatter pin until 2026-08-09. It was dropped because the field is not in the Agent Skills spec — it fails validation and blocks the upload path — and because the pin was never observed to fire. An instruction reaches every harness; a vendor field reached one. The accepted loss: an unattended queue run gets whatever model the runner is configured with, with nobody present to read this.)
 
-**Arguments**: `$ARGUMENTS` — optional task filename (with or without `.md`) or full path. If omitted, this skill scans for candidates and asks which to finalize.
+**Arguments**: optional task filename (with or without `.md`) or full path. If omitted, this skill scans for candidates and asks which to finalize.
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — run `/task-create` to scaffold one." and stop.
+- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` exists only in repos running the autonomous task-queue runner. Where it is absent, Phase 5 is skipped entirely — finalization still leaves the task verified, decided, and stamped, which is its main value.
 
 This skill **stages** changes (file edits, optionally `git mv`). Whether it then commits depends on what changed:
@@ -27,7 +27,7 @@ Track which case you're in as you go (see Phase 4f); Phase 6 branches on it.
 
 ## Phase 1 — Pick the Task
 
-If `$ARGUMENTS` resolves to a real task file under `<tasks>/{now,soon,later,queued}/`, use it.
+If the argument resolves to a real task file under `<tasks>/{now,soon,later,queued}/`, use it.
 
 Otherwise:
 
@@ -37,7 +37,7 @@ Otherwise:
    - the task fails any readiness rule from Phase 4 below.
 3. If there are no candidates, print "No tasks need finalization — all readiness rules pass and Open questions sections are empty." and stop.
 4. If there is one candidate, use it (print the chosen path).
-5. If there are multiple candidates, use `AskUserQuestion` (single-select) to let the user pick one. Label format: `<bucket>/<task-name>`, description is a one-line goal summary.
+5. If there are multiple candidates, ask with a single-select question to let the user pick one. Label format: `<bucket>/<task-name>`, description is a one-line goal summary.
 
 Print the chosen task path before continuing.
 
@@ -87,14 +87,14 @@ Then act on what you found:
 If there are zero open questions, skip this phase.
 
 Open questions are settled **in conversation, one question per turn** — never by
-collecting answers through an `AskUserQuestion` popup. A popup shows only the
+collecting answers through a question popup. A popup shows only the
 question text and option labels: context is capped at a sentence per option, the
 back-and-forth that actually changes decisions is impossible, and any briefing
 posted in the same turn before the tool call renders as secondary status in the
 console, visually displaced by the popup. A batched-popup mode shipped in this
 skill's first version and was retired on first contact (2026-07-28): four design
 decisions compressed into option labels was "not nearly enough context to make
-an informed decision." `AskUserQuestion` remains in this skill only for genuine
+an informed decision." A question prompt remains in this skill only for genuine
 pick-one or yes/no *capture* moments — choosing the task (Phase 1), the queue
 move (Phase 5), the commit offer (Phase 6) — never for resolving an open
 question.
@@ -228,11 +228,11 @@ Carry this classification into Phase 6.
 
 If **any** readiness rule failed, print:
 
-> Task is not yet ready for `queued/`. Fix the failures above and re-run `/task-finalize`, or leave it in its current bucket.
+> Task is not yet ready for `queued/`. Fix the failures above and re-run `task-finalize`, or leave it in its current bucket.
 
 …and skip the move.
 
-If all rules pass, use `AskUserQuestion` to ask:
+If all rules pass, ask with a single-select question:
 
 - **question**: "Move `<task-name>.md` to `queued/` now? The autonomous task-queue runner picks up tasks at main's HEAD — the runner won't see this task until you also commit the rename."
 - **header**: "Move to queued"
@@ -280,7 +280,7 @@ Then branch on the Phase 4f classification:
 
 ### Self-contained run — offer to commit
 
-Every staged change was confirmed through the Phase 3 discussion, so use `AskUserQuestion` to offer the commit (a yes/no capture — exactly what the popup is for):
+Every staged change was confirmed through the Phase 3 discussion, so offer the commit with a yes/no question (a yes/no capture — exactly what the popup is for):
 
 - **question**: "Commit the staged changes now with message `<chosen message>`?"
 - **header**: "Commit"
@@ -290,7 +290,7 @@ Every staged change was confirmed through the Phase 3 discussion, so use `AskUse
 
 If the user picks Yes, run `git commit -m "<chosen message>"` and report the resulting commit hash. If No, print the review reminder below.
 
-After a Yes in a repo whose AGENTS.md documents a docs-only shipping convention (a "Shipping docs-only changes" section naming a predicate script), offer to push too — from a local session: run the predicate script against the remote default branch (e.g. `scripts/docs-only-diff.sh origin/main`); exit 0 → push directly to the default branch and read the push's own output as the verification; any other exit → name what else the outgoing range carries and leave the commit local. From a cloud session, `/ship` carries docs-only PRs to merge without a review pause (maintainer's standing delegation, 2026-07-29).
+After a Yes in a repo whose AGENTS.md documents a docs-only shipping convention (a "Shipping docs-only changes" section naming a predicate script), offer to push too — from a local session: run the predicate script against the remote default branch (e.g. `scripts/docs-only-diff.sh origin/main`); exit 0 → push directly to the default branch and read the push's own output as the verification; any other exit → name what else the outgoing range carries and leave the commit local. From a cloud session, the `ship` skill carries docs-only PRs to merge without a review pause (maintainer's standing delegation, 2026-07-29).
 
 ### Authored-content run — do NOT auto-commit
 

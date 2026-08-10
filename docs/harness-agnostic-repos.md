@@ -1,0 +1,348 @@
+# Harness-agnostic repositories
+
+How every OMG Brews repository stays usable from any AI coding harness — Claude Code,
+Codex, Cursor, Copilot, Gemini CLI, opencode, and whatever ships next — without
+maintaining a second copy of anything. Read this before creating a repo, before adding
+any agent-facing file, and before wiring a harness-specific feature into a workflow that
+matters.
+
+This is the fleet standard. The reference implementation — a private fleet repo, deliberately
+unnamed in this public document — records how it applies the pattern locally in its
+`docs/architecture/agents-md.md` (fleet-internal, like `devtools-propagation.md`: its layout,
+its bridge mechanics, and the harness-specific things it has deliberately declined).
+
+## Why
+
+We do not know which harness we will be using in a year, and we already use more than
+one today. A repository whose process lives in one vendor's file format is a repository
+whose process evaporates the day we switch — or the day a contributor opens it in
+something else. The cost of neutrality is small and paid once; the cost of a rewrite is
+paid under pressure.
+
+The goal is **not** lowest-common-denominator tooling. Use every Claude Code feature
+worth using. The rule is only that the *content* — what the agent must know and do —
+lives somewhere every harness can read, and the vendor-specific file is a bridge to it
+rather than the thing itself.
+
+## The three invariants
+
+Everything below is an application of these.
+
+1. **One source of truth, bridged — never copied.** A second copy is a drift machine,
+   and a drift check is an admission that you built one. Prefer a mechanism where drift
+   is impossible by construction (an import, a symlink) over one where it is merely
+   detected.
+2. **The canonical location is the one an open standard names.** The bridge is the one a
+   single vendor names. When those are the same file, there is no bridge to build.
+3. **A bridge must be inert everywhere else.** A `CLAUDE.md` is invisible to Codex; a
+   symlink resolves or does not. But an `@import` line inside `AGENTS.md` renders as
+   literal junk text in every non-Claude harness — that is a leak, not a bridge.
+
+## The five agent-facing surfaces
+
+Every repo exposes five surfaces to an agent. Each has a canonical home and, where a
+holdout demands it, exactly one bridge.
+
+| Surface | Canonical (harness-neutral) | Bridge | What breaks without the bridge |
+|---------|------------------------------|--------|-------------------------------|
+| **Instructions** | `AGENTS.md` at repo root | `CLAUDE.md` containing `@AGENTS.md` + Claude-only sections | Claude Code reads no project instructions at all |
+| **Skills** | `.agents/skills/<name>/SKILL.md` | per-skill symlink `.claude/skills/<name> -> ../../.agents/skills/<name>` | Claude Code sees no skills |
+| **Bootstrap** | a plain script, e.g. `scripts/agent/session-start.sh` | thin `.claude/hooks/*.sh` wrapper that emits the hook JSON envelope | Non-Claude sessions start on a stale checkout with uninitialized submodules |
+| **Tool config (MCP)** | none — genuinely per-harness | `.mcp.json` (Claude Code, Cursor); `.vscode/mcp.json` uses a different key | Only the harnesses you wrote config for get the servers |
+| **Gates** | `make check` + `docs/tasks/definition-of-done.md` | none needed — a command is a command | — |
+
+The instructions and skills surfaces are settled standards. The bootstrap surface is the
+one most repos get wrong, because a hook that only fires in one harness looks like it
+works right up until someone opens the repo in another one.
+
+## Surface 1 — instructions
+
+### The layout
+
+```text
+AGENTS.md      # canonical, harness-neutral: everything every agent needs
+CLAUDE.md      # thin Claude Code bridge:
+               #   @AGENTS.md
+               #   @devtools/docs/signal-hygiene.md
+               #   @devtools/docs/definition-of-done.md
+               #   <Claude Code-specific sections only>
+```
+
+### The placement rule is audience, not topic
+
+| Content | File | Why |
+|---------|------|-----|
+| Overview, commands, architecture, env vars, domain concepts, coding rules, known issues | `AGENTS.md` | Every harness needs it |
+| Any `@`-import line | `CLAUDE.md` | Claude-only syntax; literal junk elsewhere |
+| Harness mechanics: cloud-session runbooks, subagent names, slash-command and skill pointers, `.claude/` layout rules | `CLAUDE.md` | Meaningless to other harnesses, and it keeps `AGENTS.md` lean |
+| A universal rule that happens to live in an imported doc | Plain Markdown **link** in `AGENTS.md` **and** `@`-import in `CLAUDE.md` | Other harnesses follow the link; Claude gets it eagerly |
+
+That last row is the one that gets missed, and it fails silently: the rule stays in
+context for every Claude session, so nobody notices that a Codex session never learned
+it. **Every `@`-imported doc needs a matching plain link in `AGENTS.md`.** Both standing
+rules qualify — `signal-hygiene.md` and `definition-of-done.md`.
+
+### Rules
+
+- **Never create a per-tool instruction file.** No `.cursorrules`, no
+  `.github/copilot-instructions.md`, no `GEMINI.md`, no `.windsurfrules`. The standard
+  exists to replace them. `CLAUDE.md` is the sole exception in this fleet, and it earns
+  its place by holding content, not by redirecting.
+- **Do not commit a config file whose only job is redirecting an unused harness** to
+  `AGENTS.md` (`.gemini/settings.json`, `.aider.conf.yml`). Add it the day someone
+  actually runs that tool. Record the decline so the next person doesn't re-litigate it.
+- **Size matters, and the ceiling is not ours.** Codex silently truncates the merged
+  `AGENTS.md` chain at a 32 KiB default (`project_doc_max_bytes`) — silently, meaning a
+  repo that crosses it looks fine and behaves worse. Target **≤ 20 KB** for the root
+  file, and count the whole always-loaded pile (root + wrapper + imports), not just one
+  file.
+- **Prefer a one-line pointer to a canonical doc over restating it.** Instruction files
+  prepend to every session's context in every harness: size costs tokens per turn, and
+  frequent edits churn prompt caches. Content the agent can derive from the code is pure
+  overhead.
+- **Write harness-neutral prose.** No slash-command syntax, no subagent names, no tool
+  names, no assumptions about features. The section is titled "Agent guidelines", not
+  "Notes for Claude", for a reason.
+- **Root sentinels track the source of truth.** Scripts that locate the project root by
+  probing for an instruction file must probe for `AGENTS.md`.
+- **Nested files:** monorepos may nest `AGENTS.md` per sub-project — other harnesses
+  resolve nearest-file-wins, and it is the only way to give a sub-project real detail
+  without paying for it in every session at the root. Claude Code loads nested
+  instruction files on demand **only** under the name `CLAUDE.md`, so each nested
+  `AGENTS.md` needs a one-line sibling `CLAUDE.md` containing `@AGENTS.md`.
+
+## Surface 2 — skills
+
+Skills follow the [Agent Skills open standard](https://agentskills.io/specification):
+a directory containing `SKILL.md` (YAML frontmatter + Markdown), plus optional
+`scripts/`, `references/`, `assets/`.
+
+### The layout
+
+```text
+.agents/skills/<name>/SKILL.md              # canonical — the standard's discovery path
+.claude/skills/<name> -> ../../.agents/skills/<name>   # per-skill symlink, tracked in git
+```
+
+### Rules
+
+- **The real directory lives in `.agents/skills/`.** Always. A skill authored under
+  `.claude/skills/` is a skill only one harness can run — and since skills are where our
+  process lives, that is the single most expensive mistake on this page.
+- **Link per skill, never the whole directory.** Claude Code writes internal `.system/`
+  files into `.claude/skills/`, which a directory-level symlink would push into the
+  canonical tree. Per-skill links also leave room for real project-local skills beside
+  shared ones.
+- **Symlinks are tracked in git and use relative targets**, so they survive a clone.
+- **Shared skills vendored from `devtools/` follow the same rule** — the real directory
+  belongs in `devtools/.agents/skills/`, and each consumer links to it.
+- **Write the body harness-neutral:**
+  - No slash-command syntax in `description` or body — invocation differs per harness
+    (`/name` in Claude Code, `$name` in Codex). Say "when the user invokes the *name*
+    skill".
+  - Refer to another skill by its bare backticked name — `task-finalize` — in prose
+    mentions. Reserve the "when the user invokes the *name* skill" phrasing for
+    invocation moments, and relative links (`../task-finalize/SKILL.md`) for file
+    references; link only to skills guaranteed present alongside (the mirror publishes
+    12 of 18 — a link from a mirrored skill to a non-mirrored one dangles in the mirror).
+  - No harness-only mechanics — `$ARGUMENTS`, subagents, hooks, and specific tool names
+    behave differently or not at all elsewhere. If a skill genuinely depends on one
+    harness, say so in `compatibility`.
+  - Claude-specific frontmatter (`disable-model-invocation`, `context`) is silently
+    ignored elsewhere. Avoid it; if unavoidable, the body must still make sense without.
+  - Use only spec frontmatter fields: `name` (must match the directory), `description`
+    (says *what* and *when*, ≤1024 chars), and optionally `license`, `compatibility`,
+    `metadata`, `allowed-tools`.
+- **Keep `SKILL.md` under ~500 lines**; push detail into `references/`, which loads only
+  when needed.
+- **A dangling symlink is created without error and looks fine under `ls`.** It fails
+  only at invocation time, as "Unknown skill" — mid-task, in the worst case silently.
+  Verify with `test -e` and a readable `SKILL.md`, never a visual scan.
+
+### Shell snippets inside skills
+
+A snippet in a skill body runs in a shell nobody declared — zsh locally, bash in most
+cloud sandboxes. Both classes below are *valid syntax in both shells*, so `bash -n` and
+`zsh -n` pass on precisely the bugs they exist to catch.
+
+- **Quote every expansion; iterate with `while IFS= read -r x`, never `for x in $VAR`.**
+  zsh does not word-split unquoted parameters, so the `for` form silently iterates once,
+  over the whole string.
+- **Never name a variable `path`, `cdpath`, `fpath`, `manpath`, or `prompt`.** zsh ties
+  each to a shell parameter; assigning `path` replaces `PATH` wholesale.
+
+## Surface 3 — bootstrap
+
+The work a session needs done before turn one: fetching, fast-forwarding, initializing
+private submodules, decoding environment files, reporting where the checkout stands.
+
+This is the surface where neutrality is usually skipped, because the hook works and
+nobody opens the repo elsewhere — until they do, and the session starts on a stale
+checkout with uninitialized submodules, which in this fleet means **no shared skills and
+no standing rules**, with no error to say so.
+
+### Rules
+
+- **The logic lives in a plain script** — `scripts/agent/session-start.sh` or similar —
+  runnable by a human, by CI, and by any harness, with its exit code and output intact.
+- **The harness hook is a thin wrapper.** Only the vendor-specific envelope belongs in
+  `.claude/hooks/`: the `hookSpecificOutput` JSON, `additionalContext`, `reloadSkills`,
+  and any `CLAUDE_*` environment detection.
+- **`AGENTS.md` names the command** as a first-turn step, so a harness with no hook
+  system at all still has a documented path.
+- **The portable event subset is small**: `SessionStart`, prompt-submit, `PreToolUse`,
+  `PostToolUse`, `Stop`. Claude Code, Cursor, Codex, and VS Code Copilot all expose
+  hooks, but only roughly these overlap. Anything richer is a Claude Code feature — fine
+  to use, as long as the repo still functions without it.
+- **A hook that never runs is a real failure mode**, not a hypothetical: it produces no
+  output and no error. Any workflow that depends on bootstrap having happened needs a
+  turn-one self-check the agent can run by hand, documented where context assembly puts
+  it rather than where the hook would have put it.
+
+## Surface 4 — tool config
+
+MCP server configuration is genuinely per-harness and has no neutral form: Claude Code
+and Cursor read `mcpServers`; VS Code and Copilot read `.vscode/mcp.json` with a
+top-level `servers` key; Codex uses `~/.codex/config.toml`.
+
+- **Keep `.mcp.json` for the harnesses in use.** It is config, not content — the
+  no-second-copy rule does not bite, because there is no source of truth to drift from.
+- **Do not pre-emptively write config for harnesses nobody runs**, same as the
+  instruction-file rule.
+- **Record the decision** in the repo's architecture doc, so the absence reads as a
+  choice rather than an oversight.
+
+## Surface 5 — gates
+
+The most portable surface, and it needs no bridge: a command is a command.
+
+- Every repo names its gates in `docs/tasks/definition-of-done.md` (see
+  [`definition-of-done.md`](definition-of-done.md)).
+- Gates are invoked as plain commands (`make check`), never through a harness feature.
+- The doc is linked from `AGENTS.md` as well as imported into `CLAUDE.md`.
+
+## Conformance checklist
+
+Audit a repo against these. Each asserts a **positive property of the artifact**, not an
+equality that a no-op also satisfies — per [`signal-hygiene.md`](signal-hygiene.md), a
+check whose pass state is reachable by the failure it exists to detect is worse than no
+check, because it ends the investigation.
+
+| # | Check | Failure means |
+|---|-------|---------------|
+| 1 | `AGENTS.md` exists at root and is the larger of the two instruction files | The split never happened, or content is drifting back into the wrapper |
+| 2 | `CLAUDE.md` contains `@AGENTS.md` | Claude Code sees only the wrapper |
+| 3 | Every `@`-imported doc has a plain Markdown link in `AGENTS.md` | Non-Claude harnesses never learn that rule |
+| 4 | `AGENTS.md` contains no `@`-import lines | Junk text in every other harness |
+| 5 | Root + wrapper + imports < 32 KiB, root ≤ 20 KB | Codex silently truncates |
+| 6 | No `.cursorrules`, `GEMINI.md`, `.github/copilot-instructions.md`, `.windsurfrules` | A second source of truth exists |
+| 7 | Skill count under `.agents/skills/` ≥ skill count under `.claude/skills/` | Skills exist that only one harness can run |
+| 8 | Every `.claude/skills/*` symlink resolves to a readable `SKILL.md` | "Unknown skill" mid-task |
+| 9 | Every `SKILL.md` validates against the spec | Frontmatter a stricter harness will reject |
+| 10 | Bootstrap logic is reachable as a plain command | Non-Claude sessions start unbootstrapped |
+| 11 | Root sentinels in scripts probe for `AGENTS.md` | The sentinel tracks the bridge, not the source |
+
+Checks 1–9 are mechanizable and belong in `make check` as a single stage. Note the shape
+of check 7: a count comparison, not "the directory exists" — an empty `.agents/skills/`
+and a fully-populated one both exist.
+
+> **Status:** checks 1–9 are implemented as the shared gate
+> [`Tools/check-agent-surfaces.sh`](../Tools/check-agent-surfaces.sh) — a harness-agnostic
+> script that any repo runs against its own root (`bash devtools/Tools/check-agent-surfaces.sh .`
+> in a consumer that mounts the tree at `devtools/`). The repo-root argument is **required**: a
+> default would silently audit the wrong tree. The reference implementation wires the gate
+> as `make agent-surfaces` inside its `make check`; consumers without
+> fleet access run the same gate from the public mirror at the same path (`OMGBrewmaster/devtools-core`,
+> `Tools/check-agent-surfaces.sh`). Checks 10–11 stay manual by design — both are judgments
+> about a script's *body*, and their mechanical forms ("a file named `session-start.sh` exists",
+> "the string `AGENTS.md` appears in a script") pass on a stub; the script header states the
+> rationale. A repo stops depending on someone remembering this checklist the moment its CI
+> runs the gate.
+
+## Adopting this in an existing repo
+
+1. **Inventory first.** Find every instruction file, every `@`-import, every symlink
+   among them, and — critically — every *functional* reference to the literal filename:
+   root-sentinel probes in scripts, doc-navigation tooling rooted at `CLAUDE.md`, CI
+   comments, Markdown links. Triage hits into *load-bearing code*, *tooling behavior*,
+   *links*, and *frozen artifacts* (recorded prompts, eval baselines — never edit
+   those).
+2. **Split, don't rename.** `git mv CLAUDE.md AGENTS.md` to preserve history, then author
+   the thin wrapper per the placement table. Rewrite Claude-addressed phrasing.
+3. **Slim while splitting.** You are already touching every section; this is the cheapest
+   moment to get under 20 KB.
+4. **Move the skills.** `git mv .claude/skills/<name> .agents/skills/<name>`, then
+   `ln -s ../../.agents/skills/<name> .claude/skills/<name>`. Strip harness-specific
+   phrasing from each body as you go.
+5. **Split the hooks.** Neutral body out to a plain script; vendor envelope stays behind.
+6. **Repoint functional references.** Sentinels, doc-navigation roots, links.
+7. **Verify in more than one harness.** In Claude Code: fresh session, probe a fact
+   stated only in `AGENTS.md`, confirm no import-approval dialog blocks a
+   non-interactive session, confirm skills still invoke through the symlinks. Elsewhere:
+   confirm the skills are discovered at all.
+8. **Run the repo's gates** and record the adoption in its architecture docs.
+
+## Rejected alternatives
+
+- **Symlink `CLAUDE.md -> AGENTS.md`.** Leaves no home for Claude-only content, so the
+  standing-rule imports either leak into every other harness as literal text or get
+  dropped; puts the full file size against Codex's truncation cap; and breaks for
+  Windows contributors without `core.symlinks` plus Developer Mode. Its one advantage —
+  existing links keep resolving — is outweighed, and links get repointed once,
+  mechanically.
+- **Two maintained copies plus a drift check.** Detects drift instead of making it
+  impossible. Invariant 1.
+- **Per-tool instruction files.** The standard exists precisely to replace them.
+- **Waiting for Claude Code to support `AGENTS.md` natively.** The request has been open
+  since August 2025 with no roadmap signal. The bridge is byte-for-byte equivalent
+  today; adopt now and delete the wrapper's first line if the day ever comes.
+
+## Ecosystem facts, as of August 2026
+
+Re-verify before reusing this section — the Claude Code line is the one most likely to
+change.
+
+- **`AGENTS.md`** was proposed by OpenAI with Google, Cursor, Factory, and Sourcegraph in
+  August 2025 and donated to the Linux Foundation's **Agentic AI Foundation** in December
+  2025. Adoption is past 60,000 public repositories, with native support in 30+ tools
+  including Codex, GitHub Copilot, Cursor, Jules, Gemini CLI, Devin, Zed, Amp, Factory,
+  Warp, RooCode, opencode, goose, JetBrains Junie, Windsurf, and Aider.
+- **Claude Code does not read `AGENTS.md`** — at any level, with no fallback. The claim
+  that it falls back when `CLAUDE.md` is absent is false.
+  [anthropics/claude-code#6235](https://github.com/anthropics/claude-code/issues/6235) is
+  the tracker's largest open feature request. Anthropic's own memory docs instead
+  document the import bridge this standard uses.
+- **`@path` imports** load eagerly at session launch, resolve relative to the importing
+  file, recurse to a maximum of four hops, and are skipped inside code spans and fenced
+  blocks. In-project imports load silently; one resolving outside the working directory
+  triggers a one-time approval dialog — which matters for non-interactive and cloud
+  sessions.
+- **The `AGENTS.md` spec has no import or include mechanism.** This single fact drives
+  the whole wrapper design.
+- **Codex truncates** the merged chain at 32 KiB (`project_doc_max_bytes`), global
+  `~/.codex/AGENTS.md` included. Repeatedly reported as the top production issue.
+- **Several harnesses read only the root file** — Copilot code review, Copilot CLI, early
+  Windsurf. Anything universal belongs at the root.
+- **Agent Skills** was published as an open specification in December 2025 and is
+  supported by ~40 products, including Claude Code, Codex, Copilot, VS Code, Cursor,
+  Gemini CLI, goose, and opencode. `.agents/skills/` is the cross-client discovery
+  convention. Claude Code does not yet read it
+  ([anthropics/claude-code#31005](https://github.com/anthropics/claude-code/issues/31005));
+  it reads `.claude/skills/`, and follows per-skill directory symlinks correctly.
+
+## See also
+
+- [`signal-hygiene.md`](signal-hygiene.md) — how to know a step actually happened; the
+  source of the checklist's "assert a positive property" rule
+- [`definition-of-done.md`](definition-of-done.md) — the gates surface, and where each
+  repo names its own
+- [`documentation-style-guide.md`](documentation-style-guide.md) — house conventions;
+  note that its two-hop reachability rule should root at `AGENTS.md`
+- [`devtools-propagation.md`](devtools-propagation.md) — how a change here reaches
+  consumers, given pinned edges *(fleet-internal: carries the consumer inventory and is
+  deliberately not published to the mirror — the link resolves only inside a fleet checkout)*
+- [AGENTS.md](https://agents.md/) — the standard's site
+- [Agent Skills specification](https://agentskills.io/specification) — the authoritative
+  skill format reference
+- [Claude Code memory docs](https://code.claude.com/docs/en/memory) — `CLAUDE.md`
+  mechanics and the documented interop bridge

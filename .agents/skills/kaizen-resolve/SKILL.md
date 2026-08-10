@@ -5,7 +5,7 @@ description: Close out a problem document once its flaw is actually fixed — ve
 
 # Kaizen Resolve
 
-A `docs/problems/` document persists while its flaw exists and is deleted once the flaw is *verified* gone — and a fix task completing is deliberately not the trigger. This skill is that final step as a ritual: produce the evidence, retire the document, and cascade into the journal entries it consumed. It is the problem-side counterpart of `/kaizen-review`, which owns the same lifecycle's pattern cascade; the shared rules live in the guide, not here.
+A `docs/problems/` document persists while its flaw exists and is deleted once the flaw is *verified* gone — and a fix task completing is deliberately not the trigger. This skill is that final step as a ritual: produce the evidence, retire the document, and cascade into the journal entries it consumed. It is the problem-side counterpart of the `kaizen-review` skill, which owns the same lifecycle's pattern cascade; the shared rules live in the guide, not here.
 
 Two properties shape everything below:
 
@@ -14,13 +14,13 @@ Two properties shape everything below:
 
 Repo-agnostic: it works in any project with a `docs/problems/` directory and stops cleanly in one without. It **stages** deletions and edits; it never commits and never pushes — every removal sits in `git status` for the human to read and revert before it is real.
 
-**Arguments**: $ARGUMENTS — an optional problem-document slug or path. With none, Phase 1 lists the candidates and asks which to resolve.
+**Arguments**: an optional problem-document slug or path. With none, Phase 1 lists the candidates and asks which to resolve.
 
 ---
 
 ## Phase 1 — Preconditions
 
-1. **Does this repo track problems?** `docs/problems/` with at least one document besides `README.md`. If the directory is absent, print `This project has no docs/problems/ directory — nothing to resolve. Problem documents are filed by /kaizen-review when a flaw-shaped cluster appears.` and **stop**. If it holds only the README, say so and stop.
+1. **Does this repo track problems?** `docs/problems/` with at least one document besides `README.md`. If the directory is absent, print `This project has no docs/problems/ directory — nothing to resolve. Problem documents are filed by the kaizen-review skill when a flaw-shaped cluster appears.` and **stop**. If it holds only the README, say so and stop.
 2. **Resolve the lifecycle source.** The guide ships beside this skill wherever the devtools tree lives — in the upstream tree at `docs/kaizen-guide.md`, and under any mount at `<mount>/docs/kaizen-guide.md` — so resolve it in this order:
 
    1. **Beside this file first**: `<this skill's physical directory>/../../../docs/kaizen-guide.md`. *Physical* is the operative word: consuming repos reach this skill through a symlink (e.g. `.claude/skills/kaizen-resolve -> ../../devtools-core/.agents/skills/kaizen-resolve` in a repo that mounts the tree as `devtools-core/`), so resolving `../../../docs/` **lexically** from the link path lands on the consuming repo's own `docs/` and misses the guide one directory away. Follow the file to the directory it physically lives in (resolve the symlink — `readlink -f`, or equivalent — before taking `..`). One rule then covers three layouts:
@@ -41,7 +41,7 @@ Repo-agnostic: it works in any project with a `docs/problems/` directory and sto
 
 ## Phase 2 — Pick the document, and read it whole
 
-If the argument names a document (slug or path), resolve it under `docs/problems/` and use it. Otherwise list the candidates — every `docs/problems/*.md` except the README — and check recent history for signs a fix landed (`git log --oneline -15`, commits naming a problem's subject). Present the list with whatever signal you found and let the human pick (`AskUserQuestion`, briefed first: the popup shows no file contents, so the message before it must say what each candidate is and why it might be ready).
+If the argument names a document (slug or path), resolve it under `docs/problems/` and use it. Otherwise list the candidates — every `docs/problems/*.md` except the README — and check recent history for signs a fix landed (`git log --oneline -15`, commits naming a problem's subject). Present the list with whatever signal you found and let the human pick (a choose-one prompt, briefed first: the popup shows no file contents, so the message before it must say what each candidate is and why it might be ready).
 
 Then read the chosen document **in full**, and extract three things before anything else happens:
 
