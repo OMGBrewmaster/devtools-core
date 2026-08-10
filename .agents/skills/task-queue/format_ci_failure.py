@@ -2,7 +2,7 @@
 """Render a CI-failure payload into a dedup fingerprint or a follow-up task brief.
 
 Part of the task-queue runner's CI auto-fix loop (see
-``devtools/.claude/skills/task-queue/run.sh``, ``ci_autofix_scan``). The runner
+``run.sh`` in this directory, ``ci_autofix_scan``). The runner
 collects failure details from GitHub's checks/Actions APIs into a JSON payload,
 pipes it to this script on stdin, and selects the output with ``--emit``:
 

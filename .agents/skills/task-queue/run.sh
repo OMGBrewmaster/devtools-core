@@ -1062,7 +1062,9 @@ find_our_stash_ref() {
 }
 
 # Mirror: .claude/skills/audit-queue/run.sh — keep these in sync.
-# Remove the worktree and its branch. Called only on the success path.
+# Remove the worktree and its branch. Called on the success path and on the
+# submodule-populate failure path (a half-populated worktree is not a place
+# to spawn a worker).
 # Uses `git worktree remove --force` because the worker may have left
 # untracked artifacts (build outputs, etc.) that we don't want to babysit.
 cleanup_worktree() {
@@ -2332,6 +2334,35 @@ while true; do
   if ! git worktree add -b "$BRANCH" "$WORKTREE" main >>"$LOG_FILE" 2>&1; then
     echo "[task-queue] git worktree add failed — see $LOG_FILE"
     # No worktree was created, so no record exists — the log is all there is.
+    mark_queue_file "$TASK_FILE" "merge-failed" "$TS" ""
+    flock -u 9; exec 9>&-
+    continue
+  fi
+
+  # Populate submodules. `git worktree add` writes .gitmodules and an EMPTY
+  # submodule directory — it never checks a submodule out — and in consuming
+  # repos that reach this skill through devtools-core, every shared skill in
+  # .claude/skills/ is a symlink into that directory. Skip this and the
+  # worker gets dangling links: no /task-* commands, no templates, a pytest
+  # collection error where tests import devtools.scripts — and the failure is
+  # silent in the worst way: a dangling symlink is not a failure until
+  # something follows it, so the runner exits 0 over a worker that never had
+  # its instructions. The runner is unaffected either way (it resolves
+  # $SKILL_DIR from the main tree); it is the worker's world that is
+  # stripped. In fleet repos with no submodules this no-ops harmlessly.
+  #
+  # Mirror: the sibling audit-queue runner in clients/pia-maker
+  # (.claude/skills/audit-queue/run.sh) carries this same fix — keep the two
+  # in step. Reference implementation: .claude/hooks/setup-worktree.sh.
+  if ! git -C "$WORKTREE" submodule update --init >>"$LOG_FILE" 2>&1; then
+    echo "[task-queue] git submodule update --init failed in $WORKTREE — see $LOG_FILE"
+    echo "[task-queue] Refusing to spawn a worker into a worktree with dangling"
+    echo "[task-queue] skill symlinks. Check network reachability to the submodule"
+    echo "[task-queue] remote, then re-run."
+    cleanup_worktree "$WORKTREE" "$BRANCH"
+    # The worktree -- and any STUCK marker in it -- is gone with the teardown,
+    # so no record exists; the log is all there is, as with the worktree-add
+    # failure above.
     mark_queue_file "$TASK_FILE" "merge-failed" "$TS" ""
     flock -u 9; exec 9>&-
     continue

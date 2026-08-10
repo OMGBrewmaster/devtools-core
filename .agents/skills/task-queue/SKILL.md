@@ -66,10 +66,9 @@ bash ${CLAUDE_SKILL_DIR}/run.sh
 ```
 
 (`${CLAUDE_SKILL_DIR}` is Claude Code's substitution for this skill's directory —
-`devtools/.agents/skills/task-queue/`, also reachable as
-`.agents/skills/task-queue/` or `.claude/skills/task-queue/` via the
-per-skill symlinks; other harnesses resolve the skill's own directory by
-their own convention.)
+reachable as `.agents/skills/task-queue/` or `.claude/skills/task-queue/` via the
+per-skill symlinks, under any mount name; other harnesses resolve the skill's own
+directory by their own convention.)
 
 The runner **auto-detaches**: it re-execs itself under `setsid script`,
 returns immediately, and prints the detached pid plus the runner-log path

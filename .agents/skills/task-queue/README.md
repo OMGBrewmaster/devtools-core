@@ -517,7 +517,7 @@ its own knob — a bound of 0 means the suppression expires before it ever
 applies, which is behaviourally the pre-guard runner:
 
 ```bash
-TASK_QUEUE_STALL_BG_MAX_S=0 bash devtools/.claude/skills/task-queue/probe-completion-detection.sh
+TASK_QUEUE_STALL_BG_MAX_S=0 bash .claude/skills/task-queue/probe-completion-detection.sh
 ```
 
 Expected: phase 1 prints `VIOLATION` lines beneath the guarded samples
@@ -528,14 +528,14 @@ deliberately broken copy, when you want the gate gone rather than
 expired:
 
 ```bash
-cp -r devtools/.claude/skills/task-queue /tmp/tq-broken
+cp -r .claude/skills/task-queue /tmp/tq-broken
 python3 - <<'PY'
 import pathlib, re
 p = pathlib.Path("/tmp/tq-broken/run.sh")
 p.write_text(re.sub(r"  if \(\( bg_tasks > 0 \)\); then\n(?:.*\n)*?  fi\n", "",
                     p.read_text(), count=1))
 PY
-bash devtools/.claude/skills/task-queue/probe-completion-detection.sh /tmp/tq-broken/run.sh
+bash .claude/skills/task-queue/probe-completion-detection.sh /tmp/tq-broken/run.sh
 ```
 
 (Before the bound landed this was a one-line `sed` deleting
@@ -632,7 +632,7 @@ Point the probe at a copy of the runner with the bound removed — the
 pre-fix shape — and confirm it fails:
 
 ```bash
-cp -r devtools/.claude/skills/task-queue /tmp/tq-unbounded
+cp -r .claude/skills/task-queue /tmp/tq-unbounded
 # collapse the bounded block back to the unconditional suppression
 python3 - <<'PY'
 import pathlib, re
@@ -642,7 +642,7 @@ s = re.sub(r"  if \(\( bg_tasks > 0 \)\); then\n(?:.*\n)*?  fi\n",
            "  (( bg_tasks > 0 )) && return 1\n", s, count=1)
 p.write_text(s)
 PY
-bash devtools/.claude/skills/task-queue/probe-persistent-inflight.sh /tmp/tq-unbounded/run.sh
+bash .claude/skills/task-queue/probe-persistent-inflight.sh /tmp/tq-unbounded/run.sh
 ```
 
 Expected: `past the bound and still suppressed — the runner is waiting

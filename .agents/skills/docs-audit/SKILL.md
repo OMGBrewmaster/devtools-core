@@ -18,7 +18,7 @@ Execute the following phases in order.
 ## Repo conventions (resolve first)
 
 - **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. Task documents are exempt from several checks, so a wrong answer here silently audits them under the wrong rules — resolve it once, before Phase 1. If neither exists the repo simply has no task documents; audit everything and let the exemptions below never fire. Do not stop — unlike the `task-*` skills, this one has work to do either way.
-- **Style guide**: `devtools/docs/documentation-style-quickstart.md` if it exists (the usual case — the project's skill mounts resolve through the devtools submodule), else `docs/style-guides/documentation-style-quickstart.md`, else `docs/documentation-style-quickstart.md` (auditing the devtools repo itself, where there is no nested `devtools/`). First hit wins.
+- **Style guide**: `<this skill's physical directory>/../../../docs/documentation-style-quickstart.md` if it exists — resolve the symlink first, so the path lands in the tree the skill actually lives in, not the consumer's own `docs/` ([`skill-path-resolution.md`](../../../docs/skill-path-resolution.md)) — else `docs/style-guides/documentation-style-quickstart.md`, else `docs/documentation-style-quickstart.md` (auditing the devtools repo itself, where there is no nested `devtools/`). First hit wins.
 
 ---
 

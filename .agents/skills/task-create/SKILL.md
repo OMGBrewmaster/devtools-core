@@ -35,7 +35,7 @@ exists to maintain, and the Claude Code bridge into the canonical `.agents/skill
 reaches every repo — the same way the skill body does. A copy would drift; a symlink
 cannot. If you find a *regular file* at `<tasks>/_TEMPLATE.md`, that repo has fallen
 out of the shared system — replace it with the symlink rather than editing it in
-place (`devtools/Tools/migrate-task-format.sh` does this, among other things).
+place (the devtools tree's `Tools/migrate-task-format.sh` does this, among other things).
 
 ## Phase 1 — Check Structure
 
@@ -49,7 +49,7 @@ default location):
 
   Verify it resolves (`cat docs/tasks/_TEMPLATE.md`) before continuing — a dangling
   link means the shared skills are not available in this repo.
-- `docs/tasks/now/`, `docs/tasks/soon/`, `docs/tasks/later/`, `docs/tasks/never/` each with a one-liner `README.md`. Write each one-liner from [`bucket-definitions.md`](bucket-definitions.md) and point at it for the definition of record — the one-liner is a courtesy summary, not a second definition. Write that pointer as the repo-root-relative path in prose (`devtools/.agents/skills/task-create/bucket-definitions.md`), **not** a markdown relative link: devtools sits outside the tasks tree, so a `../../..` hyperlink renders broken on GitHub even where it resolves on disk. (Do **not** create `queued/` — an autonomous queue is a deliberate per-repo opt-in, not scaffolding.)
+- `docs/tasks/now/`, `docs/tasks/soon/`, `docs/tasks/later/`, `docs/tasks/never/` each with a one-liner `README.md`. Write each one-liner from [`bucket-definitions.md`](bucket-definitions.md) and point at it for the definition of record — the one-liner is a courtesy summary, not a second definition. Write that pointer as the repo-root-relative path in prose (`.agents/skills/task-create/bucket-definitions.md` — the repo's own canonical skills surface, whatever the devtools tree is mounted as, per [`skill-path-resolution.md`](../../../docs/skill-path-resolution.md)), **not** a markdown relative link: the tree sits outside the tasks tree, so a `../../..` hyperlink renders broken on GitHub even where it resolves on disk. (Do **not** create `queued/` — an autonomous queue is a deliberate per-repo opt-in, not scaffolding.)
 
 If the user declines, stop.
 
