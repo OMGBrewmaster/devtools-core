@@ -120,7 +120,8 @@ full pattern.
 ## More
 
 - The repo's task-queue procedure doc, where one exists (e.g. `docs/procedures/development/task-queue.md`) — full end-to-end pipeline orientation
-  (`task-create` → `task-finalize` → `queued/` → autonomous runner) plus
+  (`task-create` → `task-finalize` → `task-move` → `queued/` → autonomous
+  runner) plus
   troubleshooting and known limitations.
 - [`README.md`](./README.md) — operator details (logs, timeouts,
   multi-Claude-sandbox safety, blocked-task handling), bundled alongside this

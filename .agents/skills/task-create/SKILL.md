@@ -56,7 +56,7 @@ If the user declines, stop.
 ## Phase 2 — Gather Info
 
 1. If no task name was provided in the arguments, ask for one (kebab-case, action-verb-first, e.g., `fix-login-crash`).
-2. Ask which bucket to place the task in. Options: `now`, `soon` (default), `later`. (`never/` is not offered at creation — a task is parked there later via the `task-move` skill; see [`bucket-definitions.md`](bucket-definitions.md). Tasks heading for autonomous execution are still created in a normal bucket first — the `task-finalize` skill moves them to `queued/` once they pass readiness.)
+2. Ask which bucket to place the task in. Options: `now`, `soon` (default), `later`. (`never/` is not offered at creation — a task is parked there later via the `task-move` skill; see [`bucket-definitions.md`](bucket-definitions.md). Tasks heading for autonomous execution are still created in a normal bucket first — `task-finalize` gets them ready, and `task-move` promotes them to `queued/` once they pass readiness.)
 3. Ask for a brief goal statement (1-2 sentences starting with an action verb).
 4. Ask for effort estimate: `small`, `medium` (default), or `large`.
 5. Priority defaults to `medium` and dependencies to `[]` — don't ask unless the user signals urgency (then offer `high`/`medium`/`low`) or names other tasks this one must wait for (then record their slugs as dependencies).
@@ -86,11 +86,11 @@ Print: "Created `<tasks>/{bucket}/{task-name}.md`."
 
 ## Phase 5 — Offer to Finalize
 
-The `task-finalize` skill walks open questions interactively, verifies the task's claims against HEAD, and validates readiness — and, in repos with a queue, offers to move the task to `queued/` for the autonomous runner.
+The `task-finalize` skill walks open questions interactively, verifies the task's claims against HEAD, and validates readiness. It does not move the task: in repos with a queue, promotion to `queued/` is a separate `task-move` run once finalization passes.
 
 Ask a single-select question (one option only) to offer it:
 
-- **question**: "Run `task-finalize` now to verify against HEAD and resolve open questions?" (append "— and possibly promote to `queued/`" only in repos with a queue)
+- **question**: "Run `task-finalize` now to verify against HEAD and resolve open questions?"
 - **header**: "Finalize now?"
 - options:
   - `Yes — finalize now` — invoke the `task-finalize` skill on this task immediately, passing the new file path as the argument. (Recommended when the task is small and the open questions are already in your head.)

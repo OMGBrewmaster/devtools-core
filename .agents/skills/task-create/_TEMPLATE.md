@@ -60,8 +60,8 @@ dependencies: []
        - `queued/README.md` (repos with an autonomous queue) — readiness
          rules for the task-queue runner
        - `/task-finalize` — interactive open-questions resolver that also
-         validates readiness and, where a queue exists, offers to move the
-         task into `queued/` -->
+         validates readiness (`/task-move` handles promotion into `queued/`
+         where a queue exists) -->
 
 # Task Title
 
@@ -144,8 +144,9 @@ dependencies: []
      Format: `- **Q: <question>** — <answer>` per entry.
 
      Placement matters: `/task-finalize` inserts here, immediately after
-     `## Stopping conditions` and before `## Open questions` / `## Out of
-     scope`. Don't reorder the surrounding sections. -->
+     `## Stopping conditions` — falling back to immediately before
+     `## Out of scope`, then to end of file, where those sections are
+     absent. Don't reorder the surrounding sections. -->
 
 ## Open questions
 

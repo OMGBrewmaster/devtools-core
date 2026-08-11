@@ -63,8 +63,9 @@ A parked task keeps its real `status:`, which for work nobody is doing is
 `<tasks>/queued/` exists only in repos running the autonomous task-queue runner — a
 deliberate per-repo opt-in, never scaffolded by default. It holds briefs the runner
 has claimed or will claim, so it belongs to the runner rather than to a human triage
-pass: `/task-finalize` moves a task in once it passes readiness, and the runner moves
-it out, deleting the brief on completion or setting it aside in `queued/blocked/`.
+pass: `/task-move` moves a task in once `/task-finalize` has made it pass readiness,
+and the runner moves it out, deleting the brief on completion or setting it aside in
+`queued/blocked/`.
 
 ## Queue shape
 
@@ -75,8 +76,8 @@ tolerances and the fill order that enforce it, and names its own deviations.
 `never/` and `queued/` sit **outside** that shape and outside ranking altogether.
 Nothing is promoted out of or demoted into either by shape rules, `/task-next` never
 recommends from them, and `/task-reprioritize` never moves a task in or out of them.
-Both still move on explicit request — `/task-move` for `never/`, `/task-finalize`
-for `queued/`.
+Both still move on explicit request, and `/task-move` is the skill that does it for
+either — it enforces the readiness rules on the way into `queued/`.
 
 ## See also
 

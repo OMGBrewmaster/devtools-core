@@ -44,8 +44,8 @@ terminal with live stdout, for debugging the runner itself.
 
 Drop task files into `<tasks>/queued/` and **commit them** —
 the runner watches main's HEAD, not the working tree, so an
-uncommitted file is invisible. Use `/task-finalize <task>` (which stages
-the move and reminds you to commit) or commit manually:
+uncommitted file is invisible. Use `/task-move <task> queued` (which validates
+readiness and stages the move for you to commit) or commit manually:
 
 ```bash
 git add <tasks>/queued/<task>.md && git commit -m "task-queue: enqueue <task>"
@@ -981,8 +981,9 @@ runners hit rate limits rather than going faster.
 
 - The repo's task-queue procedure doc, where one exists (e.g.
   `docs/procedures/development/task-queue.md`) —
-  full end-to-end pipeline (`/task-create` → `/task-finalize` → `queued/` →
-  autonomous runner), including troubleshooting and known limitations.
+  full end-to-end pipeline (`/task-create` → `/task-finalize` → `/task-move` →
+  `queued/` → autonomous runner), including troubleshooting and known
+  limitations.
 - [`SKILL.md`](./SKILL.md) — the `/task-queue` skill entrypoint; discoverable
   quick-start summary.
 - `<tasks>/queued/README.md` — what to put in the queue.

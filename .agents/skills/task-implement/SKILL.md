@@ -8,8 +8,8 @@ description: Implement a prepared task in the current session — re-verify the 
 Take a prepared task and build it here, in this session, with the human
 watching. This is the supervised middle of the pipeline: the `task-next` skill
 recommends what to work on and offers `task-finalize`; `task-finalize`
-verifies the brief and stamps `finalized-at`, and this skill executes it. Each
-step offers the next; none invokes it. The autonomous task-queue runner does
+verifies the brief and stamps `finalized-at`, and this skill executes it. The
+autonomous task-queue runner does
 the same job unattended, on the same discipline — see [Relationship to the
 task-queue worker](#relationship-to-the-task-queue-worker).
 
@@ -21,7 +21,7 @@ full path. If omitted, Phase 1 helps pick one.
 - **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` (when it exists) belongs to the autonomous task-queue runner. Never pick from it — a task sitting there is already claimed, and implementing it here races a worker that may be mid-flight on the same brief. If the user names a queued task explicitly, say that and offer the `task-move` skill to pull it back into a human bucket first.
 - **Definition of done**: `<tasks>/definition-of-done.md` where the file exists — the project-wide gates that no individual brief restates.
-- **Creation dates** are not recorded in the documents — derive them from git: `git log --diff-filter=A --follow --format=%cs -- <task-file>`. That yields a bare date, and git completes a bare date with the **current clock time**, so `--since=<that date>` silently drops anything committed earlier on the boundary day. Append `T00:00:00` wherever the value feeds `--since`.
+- **The brief's vintage** is a commit, not a date: the commit that created the task file is `git log --diff-filter=A --format=%H --follow -- <task-file> | tail -1`. Window history with `<that-sha>..HEAD`, never with `--since=<date>` — commit dates aren't topology, so a branch merged after the brief was written carries commits dated before it, and a date window silently excludes exactly those.
 
 ## The shared execution discipline
 
@@ -141,7 +141,7 @@ rather than assuming the brief is current.
 verification inline before writing code:
 
 1. Read every file the brief cites, in Context, Scope, and the recommended solution. Confirm each cited construct still exists; re-anchor by symbol plus a greppable quote where it moved.
-2. Derive the brief's creation date from git (see Repo conventions) and skim `git log --oneline --since=<that date>T00:00:00 -- <scoped paths>` for anything touching its claims.
+2. Find the brief's vintage commit (see Repo conventions) and skim `git log --oneline <vintage>..HEAD -- <scoped paths>` for anything touching its claims.
 3. Grep the absolute claims — "X is never assigned", "nothing checks Y", "the only caller of Z". Those are the ones that rot silently and the ones a single `grep -rn` settles.
 4. Scale with `effort:` — for `medium`/`large`, fan an `Explore` subagent over the scoped subsystem so verification is not confined to the paths the possibly-stale brief happens to name.
 

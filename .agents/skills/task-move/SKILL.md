@@ -48,7 +48,7 @@ Tasks in `queued/` are picked up by the autonomous task-queue runner with no fur
 If any rule fails:
 
 1. Print the specific failures.
-2. Print: "Refusing to move into `queued/`. Run `task-finalize {task-name}` to resolve the issues interactively (it walks open questions via an interactive question prompt, validates the same rules, and offers to do this move for you)."
+2. Print: "Refusing to move into `queued/`. Run `task-finalize {task-name}` to resolve the issues interactively (it walks open questions one at a time in conversation, stamps `finalized-at:`, and validates these same rules), then re-run this move."
 3. Stop without moving.
 
 If all rules pass, proceed.
@@ -66,7 +66,7 @@ git add <tasks>/{source-bucket}/{task-name}.md \
 
 Print: "Moved `{task-name}.md` from `{source-bucket}/` to `{target-bucket}/`."
 
-If the target was `queued/`, also print: "The task-queue runner will pick this up on its next poll cycle (if running). Start the runner with `bash .claude/skills/task-queue/run.sh` (the `.claude/skills/` path is the Claude Code bridge into the canonical `.agents/skills/` tree)."
+If the target was `queued/`, also print: "The task-queue runner will pick this up on its next poll cycle (if running) — it reads main's HEAD, not the working tree, so this rename stays invisible to it until the commit lands. Start the runner with `bash .claude/skills/task-queue/run.sh` (the `.claude/skills/` path is the Claude Code bridge into the canonical `.agents/skills/` tree)."
 
 ## Phase 6 — Ship it (docs-only fast path)
 

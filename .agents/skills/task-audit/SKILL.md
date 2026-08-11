@@ -16,7 +16,7 @@ and hands them off.
 
 - **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` (when it exists) holds tasks claimed by the autonomous runner — exclude it from the audit; the runner re-verifies its own briefs at pickup.
-- **Creation dates** are not recorded in the documents — derive them from git: `git log --diff-filter=A --follow --format=%cs -- <task-file>`. That yields a bare date, and git completes a bare date with the **current clock time**, so `--since=<that date>` silently drops anything committed earlier on the boundary day. Append `T00:00:00` wherever the value feeds `--since`.
+- **Creation dates** are not recorded in the documents — derive them from git: `git log --diff-filter=A --follow --format=%cs -- <task-file>`. Use the date only when reporting a task's age. For windowing history, use the creating *commit* (`--format=%H` on the same command, `| tail -1`) and a `<sha>..HEAD` range — never `--since=<date>`, which silently excludes commits merged after the task was written but dated before it.
 
 ## Modes
 
@@ -71,7 +71,7 @@ For each task, the analysis agent must:
 
 2. **Git history evidence** — Scope history to the task, not a fixed window:
    - The task file's own history: `git log --follow --oneline -- <task file>` (when it was created, moved between buckets, last revised).
-   - Work landed since the task was written: `git log --since=<creation date>T00:00:00 --oneline -- <referenced paths>` over the files and directories the task mentions. Note any commits that partially or fully address the task, and any that changed its ground truth.
+   - Work landed since the task was written: `git log --oneline <vintage>..HEAD -- <referenced paths>` over the files and directories the task mentions, where the vintage is the frontmatter `finalized-at:` SHA when present (the brief was re-verified there), else the creating commit (see Repo conventions). Note any commits that partially or fully address the task, and any that changed its ground truth.
 
 3. **Acceptance-criteria evaluation** — For each `- [ ]` item, determine:
    - **Verifiably complete**: Codebase evidence confirms the criterion is met. Note the evidence.
