@@ -5,7 +5,7 @@ description: Verify the given task against HEAD, orient the user before anything
 
 # Finalize Task
 
-Prepare a task for execution by a later session: verify the task's claims against the codebase at HEAD, bring the user back up to speed before anything is asked of them, settle its open questions one at a time in conversation, record the resolutions in a `## Decisions` section, write a `## Recommended solution` where the analysis determines one, and validate the task against the readiness rules.
+Prepare a task for execution by a later session: verify the task's claims against the codebase at HEAD, sketch the intended approach and red-team it with isolated subagents, bring the user back up to speed before anything is asked of them, settle its open questions one at a time in conversation, record the resolutions in a `## Decisions` section, write a `## Recommended solution` where the analysis determines one, and validate the task against the readiness rules.
 
 **Run this on the strongest model available.** Finalization is the moment it earns its keep: this skill locks in the decisions and the design a later implementer will execute, and a weak call here is inherited by every session that picks the task up. If you are on a weaker model, say so and offer to switch before Phase 3.
 
@@ -18,9 +18,9 @@ Prepare a task for execution by a later session: verify the task's claims agains
 Finalization's deliverable is a task verified, decided, and stamped. This skill edits and stages files (it never renames or moves a task), ends with a commit offer, and **never pushes** — synchronizing git with the remote is the user's, outside this skill. The run's classification decides the offer's shape:
 
 - **Self-contained run** — everything *this run* put in the diff was already shown to and confirmed by the user through the Phase 5 discussion — each decision restated as a `**Recording:**` line before the next question opened — or is machine-derived (the `finalized-at:` stamp). Phase 9 offers the commit directly, disclosing any pre-run edits of the user's own (Phase 1 snapshots them).
-- **Authored-content run** — the skill also created or substantially wrote content the user didn't see verbatim: follow-up task files spun off from a decision (Phase 5b), a drift-corrected `## Context` or `## Scope` (Phase 3), a `## Recommended solution` (Phase 7), an `**In brief**:` paragraph (Phase 8), multi-paragraph prose. Phase 9 still offers the commit, but points the user at the staged diff for an IDE review first — the authored content is never pasted into the conversation.
+- **Authored-content run** — the skill also created or substantially wrote content the user didn't see verbatim: follow-up task files spun off from a decision (Phase 5b), a drift-corrected `## Context` or `## Scope` (Phase 3), a brief defect fixed on the solution review's evidence (Phase 4a), a `## Recommended solution` (Phase 7), an `**In brief**:` paragraph (Phase 8), multi-paragraph prose. Phase 9 still offers the commit, but points the user at the staged diff for an IDE review first — the authored content is never pasted into the conversation.
 
-Phases 3, 5b, 7, and 8 flag the edits that make a run authored-content as they happen; Phase 9 confirms the classification from the staged diff rather than from memory.
+Phases 3, 4a, 5b, 7, and 8 flag the edits that make a run authored-content as they happen; Phase 9 confirms the classification from the staged diff rather than from memory.
 
 ---
 
@@ -79,19 +79,66 @@ Then act on what you found:
 
 ## Phase 4 — Prepare the interview, then orient the user
 
-If there are zero open questions and Phases 2–3 raised no proposals (structural
-gaps, contract, effort, priority, dependencies), skip this phase and Phase 5.
+An empty agenda skips this phase and Phase 5 — but the agenda is not known
+until 4a's solution review has run. Zero open questions and no Phase 2–3
+proposals (structural gaps, contract, effort, priority, dependencies) only
+says the *author* asked nothing; for a `medium`/`large` task, 4a's sketch and
+review still run, and can put items on that empty agenda. Skip exactly when
+nothing comes out of them either — and immediately for a `small` task, which
+gets no review.
 
 Invoking this skill is usually the user's first look at the task in weeks. The
 interview asks them to decide things, and a decision made without footing is a
 coin flip recorded as a decision — so before any question is asked, this phase
-builds the footing. It is conversation only: it edits no files and never
-affects the run's classification (Phase 9).
+builds the footing. Until 4b, nothing here is shown to the user, and the task
+file is edited in exactly one case: a brief defect adopted from the review's
+evidence (4a), which makes the run **authored-content** (Phase 9).
 
-### 4a — Prepare the interview (internal)
+### 4a — Sketch the solution, red-team it, then prepare the interview (internal)
 
-Work every agenda item — the open questions plus Phases 2–3's proposals — to a
-presentable state *before* anything is shown to the user:
+First, sketch the intended approach end-to-end, internally: which constructs
+change, in what order, what each change does — working notes, not the Phase 7
+section. The sketch exists because forks surface when the road is walked, not
+when it is described. Phase 7's loopback already catches them, but only after
+the interview is over; walking the road now moves that discovery to where the
+user is still in the room.
+
+For a `medium`/`large` task, dispatch two read-only subagents (`Explore`)
+against the sketch — `small` tasks skip them, as with Phase 3 step 7's
+fan-out. Both prompts carry the same two clauses: **every finding must cite
+file and line**, and **"no findings" is a success state, not a failure to
+perform** — the subagent is checking an approach, not justifying its
+dispatch.
+
+- **Refutation** — gets the sketch and the task file. Its one job: find a
+  concrete reason this approach fails against HEAD.
+- **Blast radius** — gets the change surface (the files and symbols the
+  sketch touches). Its one job: walk one hop outward — callers, consumers,
+  integration points — and report what the change would affect that the
+  brief never mentions.
+
+Adjudicate the returns yourself; raw subagent output never reaches the user.
+A finding without code evidence dies. Sort each survivor by what it is:
+
+- **A genuine fork** — two reasonable implementers would deliver materially
+  different things, and neither code nor repo convention settles which —
+  joins the agenda as a question.
+- **A design wrinkle** — real, but any competent design just handles it — is
+  held for the `## Recommended solution`, which already owes the implementer
+  its wrinkles (Phase 7).
+- **A defect in the brief** — a wrong path, a stale claim Phase 3 missed —
+  is fixed in the document now; the fix makes the run **authored-content**
+  (Phase 9).
+- Everything else is discarded, unrecorded.
+
+The fork bar is deliberately high: every question the review adds spends the
+scarcest resource this skill manages, the user's attention. When in doubt,
+downgrade to wrinkle — the user reviews Phase 7's section in the staged diff
+at their own pace, where a question would have cost a decision on the spot.
+
+Then work every agenda item — the open questions, Phases 2–3's proposals,
+and the review's surviving questions — to a presentable state *before*
+anything is shown to the user:
 
 - Assemble the evidence the item turns on from Phase 3's findings; where the
   analysis needs a read or grep Phase 3 didn't make, make it now, not
@@ -246,7 +293,10 @@ Special cases:
   section and write no Decisions entry: the question staying open is the
   record, and a Decisions bullet would only duplicate when a later run
   resolves it. The task will fail readiness on it (Phase 8) — that's
-  intentional.
+  intentional. A deferred question the *review* raised (4a) was never in the
+  section — Phase 6 adds it there, worded exactly as the conversation asked
+  it, so the same rule can hold; text shown verbatim in the discussion keeps
+  the run self-contained (Phase 9).
 - A decision spins off work that doesn't belong in this brief → create the
   follow-up as its own task file from the `task-create` skill's template,
   naming the new file in the question's **Recording:** line; the new file
@@ -273,7 +323,7 @@ Edit the task file:
    <user's multi-paragraph answer>
    ```
 
-3. Remove from `## Open questions` **only what this run accounted for** — the questions resolved in Phase 5. Deferred questions stay, and so does anything else still sitting in the section. Delete the heading itself only when those removals leave it empty — nothing left but whitespace and HTML comments, which readiness rule 6 (Phase 8) already treats as resolved — and take any leftover comments with it.
+3. Remove from `## Open questions` **only what this run accounted for** — the questions resolved in Phase 5. Deferred questions stay, and so does anything else still sitting in the section; a deferred question the solution review raised (Phase 4a) is *added* here, worded exactly as the conversation asked it — deferral keeps a question in the brief, and a review question was never in the file to keep. Delete the heading itself only when those removals leave it empty — nothing left but whitespace and HTML comments, which readiness rule 6 (Phase 8) already treats as resolved — and take any leftover comments with it.
 
    Never clear the section wholesale. Leftover text means Phase 2's extraction missed a question, which was therefore never asked — leaving it in place fails rule 6 in Phase 8, and that failure is how it surfaces. Deleting the section would erase the question and pass.
 
@@ -294,6 +344,8 @@ Rules for the section:
 - **Skip it when it would be padding.** A task whose approach is obvious from Goal + acceptance criteria (mechanical rename, config flip, doc fix) doesn't need one — an empty design section is worse than none.
 
 Drafting is where unmade decisions surface. If writing the section exposes a fork the interview never settled, don't choose silently: return to Phase 5 with that one question, then resume here with the answer recorded.
+
+For a `medium`/`large` task, one more subagent runs after this phase — even when the section itself was skipped as padding, because its subject is the whole brief: a **cold read**. Hand an `Explore` subagent the task file path and *nothing else* — not the sketch, not this conversation — because this session can no longer judge whether the brief stands alone: having run the interview, it fills every gap in the text from conversation memory without noticing. The subagent reads the brief with the repo at hand — exactly the implementer's situation at pickup — and reports each place it would have to guess between materially different deliverables, under 4a's two clauses (file-and-line evidence; empty findings are success). Adjudicate by 4a's rules: a genuine fork returns to Phase 5 as one question; a gap the design can settle sharpens this section; the rest is discarded. Phase 9 reports the outcome either way.
 
 Writing or updating this section makes the run **authored-content** (Phase 9): the commit offer will direct the user to review it in the staged diff before accepting.
 
@@ -324,7 +376,7 @@ First, look at what is already staged: `git diff --staged --name-only`. Anything
 
 - Hunks the Phase 1 snapshot already showed are the user's own pre-run edits: they don't reclassify the run, and the commit offer discloses them.
 - A hunk that traces to a Phase 6 step — a `## Decisions` bullet carrying a **Recording:** line's text, a per-question `## Open questions` removal, a confirmed contract or frontmatter adjustment, the `finalized-at:` stamp — keeps the run **self-contained**. Multi-paragraph answers the user typed are still self-contained: they're the user's own words, shown in the conversation.
-- Any new file, and any hunk you cannot attribute — a drift-corrected `## Context` or `## Scope` (Phase 3), a `## Recommended solution` (Phase 7), an `**In brief**:` paragraph (Phase 8's offer), spun-off follow-up task files — makes the run **authored-content**. A Decisions bullet that paraphrases instead of quoting its Recording line counts too: the guarantee is *shown verbatim*, and the diff is where that claim gets checked.
+- Any new file, and any hunk you cannot attribute — a drift-corrected `## Context` or `## Scope` (Phase 3), a brief defect fixed on the solution review's evidence (Phase 4a), a `## Recommended solution` (Phase 7), an `**In brief**:` paragraph (Phase 8's offer), spun-off follow-up task files — makes the run **authored-content**. A Decisions bullet that paraphrases instead of quoting its Recording line counts too: the guarantee is *shown verbatim*, and the diff is where that claim gets checked.
 - A task file that started untracked is classified by its own rule, not hunk attribution: the staged diff shows one new file mixing the user's pre-run content with this run's edits, and Phase 1 recorded no pre-image to attribute against. That run is **authored-content** — the review surface is the whole document, which is exactly what the commit adds.
 
 Then print a final block with:
@@ -334,6 +386,7 @@ Then print a final block with:
 - Number of open questions resolved.
 - Whether any were deferred (and which).
 - Whether a `## Recommended solution` was written or updated.
+- The solution review's outcome, per pass (4a's refutation and blast radius, Phase 7's cold read): skipped for `small` effort, or what each raised and where it landed — interview question, design wrinkle, brief fix, or discarded. A pass that raised nothing is reported as "ran clean": that is a result, not an omission.
 - Readiness: ✅ rules passed; ❌ rules failed, each with the specific reason; ⚠️ warnings — rule 7's unmatched dependency slugs, and the In-brief outcome (Phase 8).
 - The run classification (self-contained vs authored-content).
 
