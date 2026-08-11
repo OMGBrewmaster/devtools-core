@@ -2,34 +2,23 @@
 
 How to rank task documents against one another: area inference, in-flight pinning,
 readiness and evidence signals, placement categories, area-coupling tiers, and
-tiebreakers. Read this from `/task-reprioritize` (which ranks in order to shape
-buckets) and from `/task-next` (which ranks in order to pick one task to start) —
-it is the single source both consume, so the two cannot drift apart.
+tiebreakers. Read this from `/task-reprioritize`, which ranks in order to shape
+buckets. Nothing in this document moves a file or edits one; the skill decides what
+to do with the ranking it produces.
+
+**`/task-next` deliberately does not read this document** (decoupled 2026-08-11; it
+did before). The selector is a latency-bound quick pointer that ranks on a five-signal
+subset stated inline in its own SKILL.md, and it is allowed to diverge from this
+rubric: close enough is good enough at selection time, because a bad pick costs the
+user seconds, while a bad *placement* persists in the queue's structure until the next
+rebalance. The two skills stay aligned through the buckets themselves — this rubric's
+judgment is written into placement, and the selector trusts placement (first non-empty
+bucket) instead of re-deriving it. Selection therefore degrades gracefully, not
+identically, when a rebalance is overdue.
 
 The file lives inside the `task-reprioritize` skill because that is where the rules
 were written and proven, following the `_TEMPLATE.md` precedent (a canonical file
-inside one skill, referenced across skill boundaries). It is a shared reference, not
-a private one: edit it here and both skills change together.
-
-## How each skill reads this document
-
-| Skill | Question it asks | What a ranking decides |
-|-------|------------------|------------------------|
-| `/task-reprioritize` | Where does each task belong? | Which bucket the task is moved to |
-| `/task-next` | Which single task should I start right now? | The order candidates are recommended in |
-
-The sections below are written in the bucket vocabulary `/task-reprioritize` applies
-literally. `/task-next` reads the same words as **strength, not as a move**:
-
-| Rubric says | `/task-next` reads it as |
-|-------------|--------------------------|
-| Promote to `now/` | Rank near the top |
-| Demote to `soon/` | Rank below the ordinary candidates |
-| Flag for deletion | Do not recommend — this task looks finished; say so |
-| Category **N** / **S** / **L** | Ready to start / a tier behind / plan before picking up |
-
-Nothing in this document moves a file or edits one. Each skill decides what to do
-with the ranking it produces.
+inside one skill, referenced across skill boundaries).
 
 ---
 
@@ -50,10 +39,8 @@ If `## Scope` is missing or empty, derive the primary area from the title (e.g. 
 
 **Pin in-flight tasks first**: if a task has any checked acceptance criteria (`- [x]`) OR status is `in-progress`, keep it in its current bucket regardless of category — the user is actively working on it and a demotion would be churn. Note these as "pinned (in-flight)" in the plan output. They still consume a slot toward the bucket's target count.
 
-For a selector rather than a rebalancer, the same signal reads as: **an in-flight task
-is presumptively the pick — resume beats start.** A task the owner abandoned mid-flight
-is nearly always the right thing to return to, and picking up something new instead
-leaves two half-done tasks.
+(`/task-next` states the same intuition inline as its first ranking rule — resume
+beats start — without reading it from here.)
 
 ---
 
@@ -70,8 +57,7 @@ These always override ordinary ranking.
 > git log --diff-filter=A --follow --format=%aI -- <task-file>
 > ```
 >
-> Callers do not restate the command; take it from here so the two skills cannot drift
-> on date format. `%aI` (author date, full ISO) is deliberate: it keeps sub-day
+> `%aI` (author date, full ISO) is deliberate: it keeps sub-day
 > resolution, so two tasks created the same day still tiebreak deterministically.
 > `--follow` is what makes the date survive the `git mv` between buckets. Shorten for
 > display if you like; compare on the full value.
@@ -99,70 +85,6 @@ And **evidence-based signals**, when a `/task-audit` run earlier in this convers
 | Documented parking/deferral rationale no longer holds | Promote for re-evaluation |
 | Velocity work (developer experience, tooling, kaizen) | Place **at least in `soon/`, often `now/`** — accelerating development usually beats completing individual fixes or features |
 
-
----
-
-## Startability
-
-Whether a candidate's **remaining** work can begin in this session, without first
-arranging something that does not exist yet.
-
-This is not the same question as blocked, and conflating the two loses both. A
-**blocked** task cannot proceed at all: `status: blocked`, an unmet dependency, a
-`## Scope` naming paths the repo no longer has. A **gated** task is in perfect health
-— sound brief, real Scope, criteria that make sense — and still cannot be started
-today, because what is left of it needs a precondition nobody has arranged.
-
-The signal is invisible in metadata. A gated task looks maximally ready: `status:
-in-progress`, criteria partly checked, every Scope path present. It is found only by
-reading what the *unchecked* criteria actually ask for.
-
-| Gate | Reads as | Example |
-|---|---|---|
-| **Environment** | The remaining criteria need a repo state this repo does not have | A criterion covering queue-runner behavior, in a repo with no `<tasks>/queued/` bucket |
-| **Occasion** | Only observable in a situation nobody can manufacture on demand | A criterion met only by landing a genuinely long session |
-| **Upstream artifact** | Needs another task's output first | A skill that executes a prepared task, with no prepared task to execute |
-
-### How it applies
-
-- **It rebuts in-flight pinning.** That rule makes an in-flight task *presumptively*
-  the pick, and this is the presumption's main rebuttal: a task can be in flight,
-  furthest along in the pool, and still be the wrong recommendation because its
-  remaining fifth cannot be started. Resume beats start — but only where resuming is
-  possible.
-- **It demotes; it never hides.** A gated task still appears under "Passed over",
-  naming the specific precondition and what would clear it. The reader may know the
-  gate has already lifted, or may decide to go create the precondition — neither is
-  possible against silence.
-- **Everything gated is a finding, not an empty result.** Where no candidate is
-  startable, say so and recommend creating the precondition that frees the most work,
-  in the same shape as the all-blocked answer.
-
-### The guard
-
-The precondition must be **nameable and concrete** — a repo state, an artifact, an
-event someone could go cause. "Needs a `queued/` bucket this repo does not have" is a
-gate. "Needs more thought", "I'd want to plan it first", "not the right moment" are
-not: they are how *any* task can be reasoned out of contention, and a screen that can
-disqualify anything ranks nothing. If you cannot name what would clear it, it is not
-gated — fall through to the tiebreakers.
-
-### Which skill applies it
-
-`/task-next` applies it. `/task-reprioritize` does not: a gate is usually
-**transient**, while a bucket is a statement about importance rather than about today. A
-`now/` task gated on a missing precondition is not misplaced — `now/` still correctly
-says it matters — and demoting it over a gate that clears next week is churn.
-`/task-reprioritize` cites this document section by section and does not cite this one,
-so its behavior is unchanged by the section existing.
-
-That reasoning stands on its own. It used to be stated as shared with focus weighting,
-which `/task-reprioritize` **now does apply** ([Focus
-weighting](#focus-weighting-tasksfocusmd)) — the two cases part company on durability. A
-focus statement is the owner's standing declaration of what the queue is for, revised
-deliberately and rarely; a gate is a fact about one task that is expected to expire on
-its own. Focus still honours the distinction this section draws: it never lifts a task
-past one whose remaining work can actually start.
 
 ---
 
@@ -215,20 +137,12 @@ A repo may state, in its owner's own words, what matters right now. That stateme
 lives at `<tasks>/focus.md` — the tasks root, beside `README.md`, deliberately outside
 every bucket directory so no task glob mistakes it for a task.
 
-**Both skills read it**, at two deliberately different cadences:
-
-| Skill | When it reads focus | What focus decides there |
-|-------|---------------------|--------------------------|
-| `/task-reprioritize` | At each rebalance — **coarse and durable** | Which bucket a task sits in, so the queue's shape carries the stated direction between rebalances |
-| `/task-next` | At every selection — **fine and live** | Which single task to start today, from whatever the buckets currently hold |
-
-Applying it at both is not double-counting. Placement writes the direction into a
-structure that then persists unattended; selection re-reads the direction as it stands
-right now. **Where the two disagree, the selection-time read wins.** A bucket is a
-snapshot of the focus as it was at the last rebalance, so the fresher read corrects the
-staler one rather than compounding it: a task that focus lifted into `now/` last month,
-which today's focus no longer covers, is ranked by `/task-next` on today's focus and
-inherits no bonus from the bucket it was placed in.
+`/task-reprioritize` reads it at each rebalance — **coarse and durable** — to decide
+which bucket a task sits in, so the queue's shape carries the stated direction between
+rebalances. (`/task-next` also reads the *file*, live at each selection, but by its own
+lighter rule — see its SKILL.md, not this section. The two reads are not
+double-counting: placement writes the direction into a structure that persists
+unattended, and where the two disagree the fresher selection-time read wins.)
 
 - **No skill writes a next task into it.** `/session-land` records a session's resume
   point in the task document the work belongs to, not here; `/task-next` then surfaces
@@ -236,14 +150,16 @@ inherits no bonus from the bucket it was placed in.
 
 ### What counts as in focus
 
-One rule, applied identically by both skills. It lives here precisely so the two cannot
-drift on what "in focus" means.
+This is `/task-reprioritize`'s rule. (`/task-next` applies a looser judgment at
+selection time — deliberately: a wrong lift there costs seconds, while a wrong lift
+here persists in the queue's structure until the next rebalance, so placement is where
+the evidence requirement earns its cost.)
 
 A task is **in focus** when a **specific quotable sentence** of the focus prose covers
 its **In brief**, `## Goal`, or `## Scope`. That is a semantic judgment made by reading
 both documents — not a path match, not a label match — and the judgment carries its
-evidence: the quoted fragment travels with it into `/task-reprioritize`'s plan table and
-`/task-next`'s ranking rationale, so a reader can see *which sentence* fired.
+evidence: the quoted fragment travels with it into the plan table, so a reader can see
+*which sentence* fired.
 
 Requiring the quote is what makes the rule work on real focus documents, which routinely
 state conditions rather than areas. A focus saying that work elsewhere counts "exactly
@@ -261,11 +177,9 @@ plausible the association felt.
 
 **Focus modifies the mechanics; it never overrides them.** Every rule that already
 decides an outcome keeps its full force — [Readiness and evidence
-signals](#readiness-and-evidence-signals), [In-flight pinning](#in-flight-pinning), and,
-for `/task-next`, [Startability](#startability). Focus never overturns the
-blocked-in-`now/` demotion, never unpins in-flight work, and never lifts a task the
-selecting skill has screened as unstartable. **It cannot promote a task whose remaining
-work cannot start.**
+signals](#readiness-and-evidence-signals) and [In-flight
+pinning](#in-flight-pinning). Focus never overturns the blocked-in-`now/` demotion and
+never unpins in-flight work.
 
 What it does, in each place a ranking is formed:
 
@@ -286,8 +200,8 @@ That exemption is the whole of focus's extra reach into placement, and it is del
 this small: **the shape targets themselves do not flex.** Focus decides which tasks fill
 the shape, never how big the shape is.
 
-**Say so when the focus is unworkable.** If every in-focus task is blocked (or, for
-`/task-next`, gated), that is a finding and it must be reported in as many words: the
+**Say so when the focus is unworkable.** If every in-focus task is blocked, that is a
+finding and it must be reported in as many words: the
 stated focus is currently unworkable. Do not paper over it by promoting blocked work on
 the strength of its area. A queue that honestly reports "the thing you said matters
 cannot be started" is more useful than one that merely looks aligned, and losing that
@@ -381,17 +295,16 @@ file; then branch on the command's output:
   failure mode to avoid: the user must never mistake a mechanics-only ranking for one
   that honored a focus they thought was being read.
 
-**Both readers branch on all four cases, and both name the branch they took.** For
-`/task-next` that shapes one recommendation; for `/task-reprioritize` it shapes an entire
-pass, so an absent focus means the whole rebalance ran on mechanics and the report has to
-say that where the focus findings would otherwise have gone. A placement pass degrades
-exactly as visibly as a selection pass, or the queue silently stops honouring a document
-the owner still believes is being read.
+**Branch on all four cases, and name the branch taken.** For `/task-reprioritize` this
+shapes an entire pass: an absent focus means the whole rebalance ran on mechanics, and
+the report has to say that where the focus findings would otherwise have gone — or the
+queue silently stops honouring a document the owner still believes is being read.
+(`/task-next` carries its own copy of these branches inline, for the same reason.)
 
 ---
 
 ## See also
 
 - [`SKILL.md`](SKILL.md) — `/task-reprioritize`, which applies this rubric to bucket placement (and carries the worked example that pins the rubric's behavior)
-- [`../task-next/SKILL.md`](../task-next/SKILL.md) — `/task-next`, which applies this rubric to pick one task to start
+- [`../task-next/SKILL.md`](../task-next/SKILL.md) — `/task-next`, the fast selector that deliberately does *not* read this rubric; it trusts the bucket placement this rubric produces
 - [`../task-create/_TEMPLATE.md`](../task-create/_TEMPLATE.md) — the canonical task template, the precedent for a shared file living inside one skill

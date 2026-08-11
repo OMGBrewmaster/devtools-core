@@ -1,11 +1,11 @@
 ---
 name: task-finalize
-description: Verify the given task against HEAD, resolve its open questions interactively, write the recommended solution, and validate readiness. Requires a task name or path — it never picks a task itself.
+description: Verify the given task against HEAD, orient the user before anything is asked of them, resolve its open questions interactively, write the recommended solution, and validate readiness. Requires a task name or path — it never picks a task itself.
 ---
 
 # Finalize Task
 
-Prepare a task for execution by a later session: verify the task's claims against the codebase at HEAD, settle its open questions one at a time in conversation, record the resolutions in a `## Decisions` section, write a `## Recommended solution` where the analysis determines one, and validate the task against the readiness rules.
+Prepare a task for execution by a later session: verify the task's claims against the codebase at HEAD, bring the user back up to speed before anything is asked of them, settle its open questions one at a time in conversation, record the resolutions in a `## Decisions` section, write a `## Recommended solution` where the analysis determines one, and validate the task against the readiness rules.
 
 **Run this on the strongest model available.** Finalization is the moment it earns its keep: this skill locks in the decisions and the design a later implementer will execute, and a weak call here is inherited by every session that picks the task up. If you are on a weaker model, say so and offer to switch before Phase 3.
 
@@ -17,10 +17,10 @@ Prepare a task for execution by a later session: verify the task's claims agains
 
 Finalization's deliverable is a task verified, decided, and stamped. This skill edits and stages files (it never renames or moves a task), ends with a commit offer, and **never pushes** — synchronizing git with the remote is the user's, outside this skill. The run's classification decides the offer's shape:
 
-- **Self-contained run** — everything *this run* put in the diff was already shown to and confirmed by the user through the Phase 4 discussion — each decision restated as a `**Recording:**` line before the next question opened — or is machine-derived (the `finalized-at:` stamp). Phase 8 offers the commit directly, disclosing any pre-run edits of the user's own (Phase 1 snapshots them).
-- **Authored-content run** — the skill also created or substantially wrote content the user didn't see verbatim: follow-up task files spun off from a decision (Phase 4b), a drift-corrected `## Context` or `## Scope` (Phase 3), a `## Recommended solution` (Phase 6), an `**In brief**:` paragraph (Phase 7), multi-paragraph prose. Phase 8 still offers the commit, but points the user at the staged diff for an IDE review first — the authored content is never pasted into the conversation.
+- **Self-contained run** — everything *this run* put in the diff was already shown to and confirmed by the user through the Phase 5 discussion — each decision restated as a `**Recording:**` line before the next question opened — or is machine-derived (the `finalized-at:` stamp). Phase 9 offers the commit directly, disclosing any pre-run edits of the user's own (Phase 1 snapshots them).
+- **Authored-content run** — the skill also created or substantially wrote content the user didn't see verbatim: follow-up task files spun off from a decision (Phase 5b), a drift-corrected `## Context` or `## Scope` (Phase 3), a `## Recommended solution` (Phase 7), an `**In brief**:` paragraph (Phase 8), multi-paragraph prose. Phase 9 still offers the commit, but points the user at the staged diff for an IDE review first — the authored content is never pasted into the conversation.
 
-Phases 3, 4b, 6, and 7 flag the edits that make a run authored-content as they happen; Phase 8 confirms the classification from the staged diff rather than from memory.
+Phases 3, 5b, 7, and 8 flag the edits that make a run authored-content as they happen; Phase 9 confirms the classification from the staged diff rather than from memory.
 
 ---
 
@@ -30,7 +30,7 @@ Phases 3, 4b, 6, and 7 flag the edits that make a run authored-content as they h
 
 One match → use it, printing the resolved path before continuing. Anything else — no argument, no match, or several — stop and say which it was.
 
-Then snapshot the file's pre-run state: `git status --porcelain -- <task-file>`, plus `git diff HEAD -- <task-file>` when it reports modifications — diff against `HEAD`, not the index, so pre-run edits the user already staged are captured too. (Untracked is its own case: the whole document is pre-run content, but git records no pre-image for it, so Phase 8 classifies that start by its own rule.) This run's edits will land on top, and no after-the-fact diff can separate the two, so this snapshot is the only record of what the user brought to the run. It decides nothing here; Phase 8 reads it — to keep the user's pre-run hunks from reclassifying the run, and to disclose them in the commit offer.
+Then snapshot the file's pre-run state: `git status --porcelain -- <task-file>`, plus `git diff HEAD -- <task-file>` when it reports modifications — diff against `HEAD`, not the index, so pre-run edits the user already staged are captured too. (Untracked is its own case: the whole document is pre-run content, but git records no pre-image for it, so Phase 9 classifies that start by its own rule.) This run's edits will land on top, and no after-the-fact diff can separate the two, so this snapshot is the only record of what the user brought to the run. It decides nothing here; Phase 9 reads it — to keep the user's pre-run hunks from reclassifying the run, and to disclose them in the commit offer.
 
 ---
 
@@ -49,7 +49,7 @@ Extract individual **open questions** from the Open questions section as best yo
 - A single block of prose with multiple `?` → split sensibly.
 - HTML comments (`<!-- ... -->`) are guidance, not real questions — skip them.
 
-While parsing, run a quick pass over Phase 7's readiness rules and note which already fail. Structural gaps — a placeholder Goal, no real acceptance criteria, empty stopping conditions — join the Phase 4 agenda as items to settle in discussion, so they surface before the interview instead of as failures after it.
+While parsing, run a quick pass over Phase 8's readiness rules and note which already fail. Structural gaps — a placeholder Goal, no real acceptance criteria, empty stopping conditions — join the interview agenda (assembled in Phase 4a, settled in Phase 5), so they surface before the interview instead of as failures after it.
 
 ---
 
@@ -59,41 +59,131 @@ The task document is a **cache of code observations made at some past commit**, 
 
 **Scoped paths** below means: the paths named in `## Scope`, plus every file cited in `## Context` and the open questions.
 
-1. **Record the verification point**: `git rev-parse HEAD`. Phase 5 stamps this SHA into the frontmatter. If `git status --porcelain -- <scoped paths>` reports uncommitted changes, the tree you are about to verify is not the commit you are about to stamp — say so, and either get that state committed first or carry the caveat into the Phase 8 report. (The task file's own pre-run state is Phase 1's snapshot, not this check.)
+1. **Record the verification point**: `git rev-parse HEAD`. Phase 6 stamps this SHA into the frontmatter. If `git status --porcelain -- <scoped paths>` reports uncommitted changes, the tree you are about to verify is not the commit you are about to stamp — say so, and either get that state committed first or carry the caveat into the Phase 9 report. (The task file's own pre-run state is Phase 1's snapshot, not this check.)
 2. **Classify each scoped path before trusting anything git says about it** (`git ls-files --error-unmatch -- "<path>"`). Tracked here → the history probes below mean something. On disk but untracked here — gitignored, or another repository's file; hq tasks naming `devtools/` paths hit this every time → git in this repo says nothing about it: verify it by reading, and run any history probe in the repo that owns it. Absent entirely → that is a finding (the construct is gone, or the brief's path was always wrong), never a silent skip. This step exists because `git log` over a wrong path prints the same nothing as "no drift".
 3. **Read every file the task cites** (in Context, Scope, and the open questions). For `file:line` references, confirm the cited construct is still there; where it moved, re-anchor by symbol + quote (see the drift rules below).
-4. **Diff the task's vintage against HEAD**, over the scoped paths step 2 confirmed tracked here: the vintage is the frontmatter `finalized-at:` SHA when present (the claims were last verified there — Phase 5 stamped it), else the commit that created the task file (`git log --diff-filter=A --format=%H --follow -- <task-file> | tail -1`). Then `git log --oneline <vintage>..HEAD -- <scoped paths>`, and `git diff <vintage> HEAD -- <scoped paths>` where the log alone doesn't settle whether a cited construct survived. Never window by date (`--since`): commit dates aren't topology — a branch merged after the task was created carries commits dated before it, and the date window silently excludes exactly those. A task file with no creating commit was never committed — it has no vintage; skip the window and rely on steps 3 and 5's direct verification. Skim any commit that plausibly touches the task's claims.
+4. **Diff the task's vintage against HEAD**, over the scoped paths step 2 confirmed tracked here: the vintage is the frontmatter `finalized-at:` SHA when present (the claims were last verified there — Phase 6 stamped it), else the commit that created the task file (`git log --diff-filter=A --format=%H --follow -- <task-file> | tail -1`). Then `git log --oneline <vintage>..HEAD -- <scoped paths>`, and `git diff <vintage> HEAD -- <scoped paths>` where the log alone doesn't settle whether a cited construct survived. Never window by date (`--since`): commit dates aren't topology — a branch merged after the task was created carries commits dated before it, and the date window silently excludes exactly those. A task file with no creating commit was never committed — it has no vintage; skip the window and rely on steps 3 and 5's direct verification. Skim any commit that plausibly touches the task's claims.
 5. **Spot-check the strongest factual claims** with grep — "X is never assigned", "nothing checks Y", "the only place that does Z". Absolute claims are exactly the ones that rot silently, and they are usually one `grep -rn` away from confirmation or refutation.
-6. **Verify the contract, not just the narrative.** Walk the acceptance criteria against HEAD and note each as met, partially met, or no evidence — landed work that already satisfies a criterion is exactly the "build something that already exists" failure this phase exists to catch. A contract change (ticking, dropping, rewording a criterion) is proposed to the user in Phase 4, never applied silently. Then check `dependencies:`: the completion convention deletes finished briefs, so a slug matching no task file is ambiguous — disambiguate with `git log --diff-filter=D --oneline -- "<tasks>/**/<slug>.md"` (deleted-as-completed → propose removing it from the list; no deletion either → a typo to fix). A dependency still open means Phase 6 would be designing against code that does not exist yet; the brief must say so.
+6. **Verify the contract, not just the narrative.** Walk the acceptance criteria against HEAD and note each as met, partially met, or no evidence — landed work that already satisfies a criterion is exactly the "build something that already exists" failure this phase exists to catch. A contract change (ticking, dropping, rewording a criterion) is proposed to the user in Phase 5, never applied silently. Then check `dependencies:`: the completion convention deletes finished briefs, so a slug matching no task file is ambiguous — disambiguate with `git log --diff-filter=D --oneline -- "<tasks>/**/<slug>.md"` (deleted-as-completed → propose removing it from the list; no deletion either → a typo to fix). A dependency still open means Phase 7 would be designing against code that does not exist yet; the brief must say so.
 7. **Scale depth to `effort:`**: for `small`, reading the cited files suffices; for `medium`/`large`, also fan out an `Explore` subagent over the scoped subsystem so the verification isn't limited to the paths the (possibly stale) task happens to name.
 
 Then act on what you found:
 
-- **If verification shows the task is already done or no longer applies, stop finalizing** — Phases 4–8 assume a task worth handing on. Already done (the work is in the tree, the criteria are met, only the brief never closed) → say so and offer the `task-implement` skill, whose close-out path owns that state. Moot (the premise is gone, superseded, overtaken by other work) → present the evidence and recommend deletion or reprioritization — the proposal is the whole deliverable here: this skill deletes and moves nothing, and acting on the recommendation (removing the file, or re-bucketing via the `task-move` skill) is the user's, outside this run. Do not resolve open questions about work that should not happen.
+- **If verification shows the task is already done or no longer applies, stop finalizing** — Phases 4–9 assume a task worth handing on. Already done (the work is in the tree, the criteria are met, only the brief never closed) → say so and offer the `task-implement` skill, whose close-out path owns that state. Moot (the premise is gone, superseded, overtaken by other work) → present the evidence and recommend deletion or reprioritization — the proposal is the whole deliverable here: this skill deletes and moves nothing, and acting on the recommendation (removing the file, or re-bucketing via the `task-move` skill) is the user's, outside this run. Do not resolve open questions about work that should not happen. Either disposition message is also the user's first contact with this task in a long while — write it to Phase 4b's zero-context rules: plain terms, every repo-specific name glossed or dropped.
 - **Rewrite `## Context` / `## Scope` so they are true at HEAD.** Say what changed and name the commits that changed it — the implementer should inherit the corrected history, not rediscover it. Prefer **durable anchors** — a symbol name plus a short greppable quote (`` `run_tools`'s `if isinstance(result, Exception)` branch ``) — over bare line numbers, which rot fastest; keep line numbers only as a secondary convenience.
-- **If verification answers or moots an open question, don't silently drop the question.** Carry the evidence into Phase 4a and let the user confirm the evidence-based resolution — the answer changed because the ground changed, and the user should see that.
-- **Re-check `effort:` and `priority:`** against the corrected picture. If verification resized the task (machinery already landed; the problem grew), propose the change alongside the Phase 4 questions.
-- Any rewrite in this phase makes the run **authored-content** (Phase 8) — the user will review it before commit.
+- **If verification answers or moots an open question, don't silently drop the question.** Carry the evidence into the Phase 4a prep and let the user confirm the evidence-based resolution in Phase 5 — the answer changed because the ground changed, and the user should see that.
+- **Re-check `effort:` and `priority:`** against the corrected picture. If verification resized the task (machinery already landed; the problem grew), propose the change alongside the Phase 5 questions.
+- Any rewrite in this phase makes the run **authored-content** (Phase 9) — the user will review it before commit.
 
 ---
 
-## Phase 4 — Resolve open questions by discussion
+## Phase 4 — Prepare the interview, then orient the user
 
-If there are zero open questions and Phases 2–3 raised no proposals (structural gaps, contract, effort, priority, dependencies), skip this phase. Proposals without open questions still use 4a's shape — one per turn, evidence first, a **Recording:** line on convergence.
+If there are zero open questions and Phases 2–3 raised no proposals (structural
+gaps, contract, effort, priority, dependencies), skip this phase and Phase 5.
+
+Invoking this skill is usually the user's first look at the task in weeks. The
+interview asks them to decide things, and a decision made without footing is a
+coin flip recorded as a decision — so before any question is asked, this phase
+builds the footing. It is conversation only: it edits no files and never
+affects the run's classification (Phase 9).
+
+### 4a — Prepare the interview (internal)
+
+Work every agenda item — the open questions plus Phases 2–3's proposals — to a
+presentable state *before* anything is shown to the user:
+
+- Assemble the evidence the item turns on from Phase 3's findings; where the
+  analysis needs a read or grep Phase 3 didn't make, make it now, not
+  mid-interview.
+- Enumerate the candidate answers with genuine trade-offs and form a
+  recommendation with its reasoning — the material 5a's question messages are
+  built from.
+- Note the facts the item's discussion will rely on.
+
+Then split those noted facts: **a premise shared by two or more items, or one
+the task itself stands on, goes into the orientation card; a fact only one
+item needs stays out**, delivered just-in-time in that item's own turn. This
+rule — not a summary of the document — is what scopes the card: the user gets
+exactly the footing the upcoming decisions need, nothing else.
+
+Order the agenda by leverage: Phases 2–3's proposals first — they change the
+premises the questions stand on — then the question whose answer constrains
+the most others. Prep for later items is provisional: earlier answers reshape
+them, and 5a revises before presenting rather than presenting as planned.
+
+Nothing from this step is shown yet, and the card must not front-run the
+interview: recommendations, trade-offs, and advocacy stay in Phase 5. Tailored
+means the *context* is chosen for the decisions ahead — not that the decisions
+arrive pre-argued.
+
+### 4b — Orient the user
+
+Present one orientation card, then stop and let the user set the pace. Assume
+a reader with **zero context** beyond "I filed this once"; shrink the card
+only on evidence from this conversation (a `task-next` or `task-status` report
+on this task already on screen), never on how recent the file looks.
+
+The card is one screen, hard caps, in this order:
+
+- **The problem** — ≤3 sentences, plain words: what's wrong or missing, and
+  why anyone cares. Seed from `**In brief**:` where present, corrected to what
+  Phase 3 verified — never pasted stale.
+- **The proposed fix** — ≤3 sentences, same register.
+- **What's changed since this was written** — only when Phase 3 found drift;
+  1–2 sentences naming the practical effect, not the commits.
+- **What you'll be deciding** — the agenda in 4a's order, one plain line each
+  with its stakes ("decides scope", "wording only, low stakes"). Phase 5
+  numbers its turns against this list.
+- **Terms that will come up** — ≤3 entries, only where a repo-specific term is
+  unavoidable in the questions ahead.
+
+Writing rules for the card — they also bind Phase 5's question messages and
+Phase 3's early-exit dispositions:
+
+- Every repo-specific noun is glossed in plain words on first use or omitted:
+  "the script that copies the shared skills into each repo" beats its
+  filename, which goes in parentheses only where a question will need it.
+- Each line is understandable without the others — no explanation that leans
+  on adjacent material.
+- Depth on demand, not by default: the card is the floor. Close by naming one
+  or two expansions on offer ("I can go deeper on why the current approach
+  fails") rather than including them.
+
+End the turn in prose with the three exits visible:
+
+> Ask me anything about this, say **ready** for question 1 of N, or say
+> **take your recommendations** to see the whole batch at once.
+
+Loop on the user's questions until a clear affirmative — the 4a prep usually
+already holds the answer; where it doesn't, go look rather than improvising.
+**ready** (any clear affirmative) advances to Phase 5. **take your
+recommendations** jumps to 5b's wholesale path: present every prepared
+recommendation with a one-line reason, and on the user's confirmation give
+each its own **Recording:** line.
+
+---
+
+## Phase 5 — Resolve open questions by discussion
+
+Skipped exactly when Phase 4 was skipped. Proposals without open questions
+still use 5a's shape — one per turn, evidence first, a **Recording:** line on
+convergence.
 
 Open questions are settled **in conversation, one question per turn** — never
 through a question popup.
 
-### 4a — Discuss, one question per turn
+### 5a — Discuss, one question per turn
 
-Order the discussion by leverage, not by document order: Phases 2–3's proposals
-first — they change the premises the questions stand on — then the question
-whose answer constrains the most others. Open the first message with a
-roadmap — the one-line task summary, then the planned questions by short
-title, in order — and present the first question in the same message. The
-roadmap is what lets the user reorder, pre-answer, or accept recommendations
-wholesale before the turns are spent; number later turns against it
+Follow the order Phase 4a prepared and the orientation presented — the user
+saw that list and may have reordered or pre-answered against it; honor that.
+The orientation already did the roadmap's job, so open directly with the first
+question, numbering every turn against the orientation's decision list
 ("question 2 of 5").
+
+Each question message assumes **the orientation card and nothing else** — not
+the task document, not earlier threads beyond their **Recording:** lines. The
+question-specific facts 4a held back arrive here, in the turn that needs them.
 
 For each open question, post one message containing:
 
@@ -115,7 +205,9 @@ conversation. Keep the block self-contained and skimmable.
 Iterate until the question converges: answer follow-ups, sharpen or add
 options, absorb corrections. Answers to earlier questions often reshape later
 ones — that is the point of going one at a time; revise the later questions
-before presenting them rather than presenting them as originally planned.
+before presenting them rather than presenting them as originally planned. An
+answer that misreads a premise is an orientation gap, not a user error:
+re-ground that one premise in plain terms, then re-ask.
 
 Two ways out mid-phase, both legitimate. An answer that undermines the task's
 premise — the work is moot, already done, or belongs elsewhere — ends the
@@ -123,17 +215,17 @@ interview: return to the Phase 3 disposition (close-out, deletion,
 reprioritization) instead of resolving questions about work that should not
 happen. And the user stopping early is a valid outcome, not a failed run:
 record what converged, leave the rest open, and let readiness fail on them
-(Phase 7) — the brief is partially decided and should say so.
+(Phase 8) — the brief is partially decided and should say so.
 
-### 4b — Record each resolution
+### 5b — Record each resolution
 
 When a question converges, restate the outcome in a single line before opening
 the next question:
 
 > **Recording:** <the decision, in one or two sentences>
 
-That line is the decision record — Phase 5 copies its text into `## Decisions`
-verbatim, which is what lets a run stay **self-contained** (Phase 8):
+That line is the decision record — Phase 6 copies its text into `## Decisions`
+verbatim, which is what lets a run stay **self-contained** (Phase 9):
 everything in the Decisions diff was shown to the user in the conversation.
 Decisions is read by a later session that does not have this conversation, so
 the line states the decision itself — never a pointer like "as recommended" or
@@ -144,26 +236,27 @@ and re-issue that line too; the last version stands.
 Special cases:
 
 - The user answers in multi-paragraph prose worth preserving whole → mark it
-  multi-paragraph for Phase 5 formatting and carry their words, not a summary.
+  multi-paragraph for Phase 6 formatting and carry their words, not a summary.
 - The user accepts your recommendations wholesale ("take your recommendations
-  for the rest") → fine, but each remaining question still gets its own
+  for the rest" — mid-interview, or from the orientation before any question
+  was asked) → fine, but each remaining question still gets its own
   **Recording:** line stating the decision — one message may carry them all —
   so the Decisions diff stays complete.
 - The user explicitly defers a question → **keep** it in the Open questions
   section and write no Decisions entry: the question staying open is the
   record, and a Decisions bullet would only duplicate when a later run
-  resolves it. The task will fail readiness on it (Phase 7) — that's
+  resolves it. The task will fail readiness on it (Phase 8) — that's
   intentional.
 - A decision spins off work that doesn't belong in this brief → create the
   follow-up as its own task file from the `task-create` skill's template,
   naming the new file in the question's **Recording:** line; the new file
-  makes the run **authored-content** (Phase 8).
+  makes the run **authored-content** (Phase 9).
 
 ---
 
-## Phase 5 — Record the resolutions
+## Phase 6 — Record the resolutions
 
-Every edit in this phase is pre-approved by construction: its content was either confirmed verbatim in the Phase 4 discussion — a **Recording:** line — or is machine-derived from Phase 3. This phase on its own never makes a run authored-content.
+Every edit in this phase is pre-approved by construction: its content was either confirmed verbatim in the Phase 5 discussion — a **Recording:** line — or is machine-derived from Phase 3. This phase on its own never makes a run authored-content.
 
 Edit the task file:
 
@@ -180,17 +273,17 @@ Edit the task file:
    <user's multi-paragraph answer>
    ```
 
-3. Remove from `## Open questions` **only what this run accounted for** — the questions resolved in Phase 4. Deferred questions stay, and so does anything else still sitting in the section. Delete the heading itself only when those removals leave it empty — nothing left but whitespace and HTML comments, which readiness rule 6 (Phase 7) already treats as resolved — and take any leftover comments with it.
+3. Remove from `## Open questions` **only what this run accounted for** — the questions resolved in Phase 5. Deferred questions stay, and so does anything else still sitting in the section. Delete the heading itself only when those removals leave it empty — nothing left but whitespace and HTML comments, which readiness rule 6 (Phase 8) already treats as resolved — and take any leftover comments with it.
 
-   Never clear the section wholesale. Leftover text means Phase 2's extraction missed a question, which was therefore never asked — leaving it in place fails rule 6 in Phase 7, and that failure is how it surfaces. Deleting the section would erase the question and pass.
+   Never clear the section wholesale. Leftover text means Phase 2's extraction missed a question, which was therefore never asked — leaving it in place fails rule 6 in Phase 8, and that failure is how it surfaces. Deleting the section would erase the question and pass.
 
-4. Apply the contract and frontmatter changes the user confirmed through a **Recording:** line — a ticked, dropped, or reworded acceptance criterion, or any frontmatter field the discussion corrected (`status:`, `effort:`, `priority:`, `dependencies:`) — Phases 2–3's proposals, settled in Phase 4. A change with no Recording line behind it does not belong in this phase.
+4. Apply the contract and frontmatter changes the user confirmed through a **Recording:** line — a ticked, dropped, or reworded acceptance criterion, or any frontmatter field the discussion corrected (`status:`, `effort:`, `priority:`, `dependencies:`) — Phases 2–3's proposals, settled in Phase 5. A change with no Recording line behind it does not belong in this phase.
 
 5. Stamp the verification point: set `finalized-at: <sha>` in the YAML frontmatter — the HEAD SHA recorded at the start of Phase 3, overwriting any previous value. This records "the claims in this document were verified true as of this commit": it becomes the vintage Phase 3 diffs from on the next run (`<sha>..HEAD` over the scoped paths), and whoever picks the task up re-verifies the brief the same way when that range is non-empty. Briefs rot while they sit; the stamp is what makes that rot detectable mechanically.
 
 ---
 
-## Phase 6 — Write the recommended solution
+## Phase 7 — Write the recommended solution
 
 If the Phase 3 verification plus the resolved questions determine a concrete approach, write (or update) a `## Recommended solution` section. Placement: immediately after `## Context`, before `## Scope` (problem → design → footprint); when `## Context` is absent, immediately after `## Goal`.
 
@@ -200,15 +293,15 @@ Rules for the section:
 - **Ground every design point in what you verified.** Name the functions and files (durable anchors, per Phase 3), state why each piece goes where it goes, and flag any wrinkle the implementer would otherwise trip on. The bar: a fresh session should be able to implement without re-deriving the analysis.
 - **Skip it when it would be padding.** A task whose approach is obvious from Goal + acceptance criteria (mechanical rename, config flip, doc fix) doesn't need one — an empty design section is worse than none.
 
-Drafting is where unmade decisions surface. If writing the section exposes a fork the interview never settled, don't choose silently: return to Phase 4 with that one question, then resume here with the answer recorded.
+Drafting is where unmade decisions surface. If writing the section exposes a fork the interview never settled, don't choose silently: return to Phase 5 with that one question, then resume here with the answer recorded.
 
-Writing or updating this section makes the run **authored-content** (Phase 8): the commit offer will direct the user to review it in the staged diff before accepting.
+Writing or updating this section makes the run **authored-content** (Phase 9): the commit offer will direct the user to review it in the staged diff before accepting.
 
 ---
 
-## Phase 7 — Validate readiness
+## Phase 8 — Validate readiness
 
-Check every rule and collect failures — Phase 8's final block reports them; don't print a separate summary here:
+Check every rule and collect failures — Phase 9's final block reports them; don't print a separate summary here:
 
 | # | Rule | How to check |
 |---|------|--------------|
@@ -218,20 +311,20 @@ Check every rule and collect failures — Phase 8's final block reports them; do
 | 4 | Status field chosen | The frontmatter `status:` value is one of `not-started` / `in-progress` / `blocked`. Fails if the frontmatter block is missing or the value is the template placeholder (`<not-started \| in-progress \| blocked>`). |
 | 5 | Effort field chosen | The frontmatter `effort:` value is one of `small` / `medium` / `large`. Fails if the value is the template placeholder (`<small \| medium \| large>`). |
 | 6 | Open questions resolved | `## Open questions` is absent or contains only whitespace/comments |
-| 7 | Priority and dependencies well-formed | The frontmatter `priority:` value is one of `high` / `medium` / `low`, and `dependencies:` is a (possibly empty) list of kebab-case task slugs — warn (on Phase 8's ⚠️ line, not a failure) if a listed slug matches no existing task file. |
-| 8 | Context verified at HEAD | The frontmatter `finalized-at:` value is a valid commit SHA in this repo (`git cat-file -e <sha>^{commit}`). Stamped by Phase 5; fails if absent or dangling — a task without it was never verified. |
+| 7 | Priority and dependencies well-formed | The frontmatter `priority:` value is one of `high` / `medium` / `low`, and `dependencies:` is a (possibly empty) list of kebab-case task slugs — warn (on Phase 9's ⚠️ line, not a failure) if a listed slug matches no existing task file. |
+| 8 | Context verified at HEAD | The frontmatter `finalized-at:` value is a valid commit SHA in this repo (`git cat-file -e <sha>^{commit}`). Stamped by Phase 6; fails if absent or dangling — a task without it was never verified. |
 
-One check warrants an interaction of its own: **no `**In brief**:` paragraph, or it still holds the template comment** — warn, do not fail. In brief serves human triage, not implementation correctness, so a missing one never blocks readiness; tasks predating the field are expected to lack it. Offer to write one (a yes/no capture — use the popup); if the user accepts, authoring it makes this an **authored-content** run (Phase 8).
+One check warrants an interaction of its own: **no `**In brief**:` paragraph, or it still holds the template comment** — warn, do not fail. In brief serves human triage, not implementation correctness, so a missing one never blocks readiness; tasks predating the field are expected to lack it. Offer to write one (a yes/no capture — use the popup); if the user accepts, authoring it makes this an **authored-content** run (Phase 9).
 
 ---
 
-## Phase 8 — Summary and commit
+## Phase 9 — Summary and commit
 
 First, look at what is already staged: `git diff --staged --name-only`. Anything there this run never touched is the user's parked work — leave it staged, exclude it from the attribution below, and name it in the commit offer (the commit's pathspec keeps it out). Then stage everything this run touched: `git add` the task file and any files the run created. Then classify the run as **self-contained** or **authored-content** from the staged diff (`git diff --staged`), not from memory — attribute every hunk in the run's own files:
 
 - Hunks the Phase 1 snapshot already showed are the user's own pre-run edits: they don't reclassify the run, and the commit offer discloses them.
-- A hunk that traces to a Phase 5 step — a `## Decisions` bullet carrying a **Recording:** line's text, a per-question `## Open questions` removal, a confirmed contract or frontmatter adjustment, the `finalized-at:` stamp — keeps the run **self-contained**. Multi-paragraph answers the user typed are still self-contained: they're the user's own words, shown in the conversation.
-- Any new file, and any hunk you cannot attribute — a drift-corrected `## Context` or `## Scope` (Phase 3), a `## Recommended solution` (Phase 6), an `**In brief**:` paragraph (Phase 7's offer), spun-off follow-up task files — makes the run **authored-content**. A Decisions bullet that paraphrases instead of quoting its Recording line counts too: the guarantee is *shown verbatim*, and the diff is where that claim gets checked.
+- A hunk that traces to a Phase 6 step — a `## Decisions` bullet carrying a **Recording:** line's text, a per-question `## Open questions` removal, a confirmed contract or frontmatter adjustment, the `finalized-at:` stamp — keeps the run **self-contained**. Multi-paragraph answers the user typed are still self-contained: they're the user's own words, shown in the conversation.
+- Any new file, and any hunk you cannot attribute — a drift-corrected `## Context` or `## Scope` (Phase 3), a `## Recommended solution` (Phase 7), an `**In brief**:` paragraph (Phase 8's offer), spun-off follow-up task files — makes the run **authored-content**. A Decisions bullet that paraphrases instead of quoting its Recording line counts too: the guarantee is *shown verbatim*, and the diff is where that claim gets checked.
 - A task file that started untracked is classified by its own rule, not hunk attribution: the staged diff shows one new file mixing the user's pre-run content with this run's edits, and Phase 1 recorded no pre-image to attribute against. That run is **authored-content** — the review surface is the whole document, which is exactly what the commit adds.
 
 Then print a final block with:
@@ -241,7 +334,7 @@ Then print a final block with:
 - Number of open questions resolved.
 - Whether any were deferred (and which).
 - Whether a `## Recommended solution` was written or updated.
-- Readiness: ✅ rules passed; ❌ rules failed, each with the specific reason; ⚠️ warnings — rule 7's unmatched dependency slugs, and the In-brief outcome (Phase 7).
+- Readiness: ✅ rules passed; ❌ rules failed, each with the specific reason; ⚠️ warnings — rule 7's unmatched dependency slugs, and the In-brief outcome (Phase 8).
 - The run classification (self-contained vs authored-content).
 
 Pick the commit message from the first row that applies:
@@ -255,7 +348,7 @@ Pick the commit message from the first row that applies:
 
 Then make the commit offer. Its shape depends on the classification:
 
-**Self-contained run** — every staged change in the run's own files was either confirmed through the Phase 4 discussion or is the user's own pre-run edit. When the Phase 1 snapshot was dirty, put a short summary of the pre-run diff in the offer (diffstat plus a one-line gist), so the Yes is informed rather than assumed. Ask (a yes/no capture — exactly what the popup is for):
+**Self-contained run** — every staged change in the run's own files was either confirmed through the Phase 5 discussion or is the user's own pre-run edit. When the Phase 1 snapshot was dirty, put a short summary of the pre-run diff in the offer (diffstat plus a one-line gist), so the Yes is informed rather than assumed. Ask (a yes/no capture — exactly what the popup is for):
 
 - **question**: "Commit the staged changes now with message `<chosen message>`?"
 - **header**: "Commit"

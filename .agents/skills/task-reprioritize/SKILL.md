@@ -11,7 +11,7 @@ This command owns **all bucket moves and deletions** — the `task-audit` skill 
 
 This skill **stages** changes via `git mv` / `git rm` but does **NOT** auto-commit.
 
-**The ranking rules live in [`ranking-rubric.md`](ranking-rubric.md)**, next to this file — area inference, in-flight pinning, readiness and evidence signals, the N/S/L placement categories, the A/B/C coupling tiers, the tiebreakers, and focus weighting. The `task-next` skill reads the same rubric to pick a single task to start, so the two skills rank identically by construction. Read the rubric before Phase 1; the phases below cite its sections rather than restating them.
+**The ranking rules live in [`ranking-rubric.md`](ranking-rubric.md)**, next to this file — area inference, in-flight pinning, readiness and evidence signals, the N/S/L placement categories, the A/B/C coupling tiers, the tiebreakers, and focus weighting. This skill is the rubric's only reader: the `task-next` skill deliberately ranks on its own smaller inline order (decoupled 2026-08-11 for selection speed) and stays aligned by trusting the bucket placement this skill produces, not by re-deriving it. Read the rubric before Phase 1; the phases below cite its sections rather than restating them.
 
 **This pass is weighted by `<tasks>/focus.md` throughout**, not as a closing report line. Every phase below says how focus affected it, and the rubric's [Focus weighting](ranking-rubric.md#focus-weighting-tasksfocusmd) section is the single specification of what matches, how much it weighs, and what to do when the document is stale or absent. Focus modifies the mechanics and never overrides them — in particular it never promotes a task whose remaining work cannot start.
 
