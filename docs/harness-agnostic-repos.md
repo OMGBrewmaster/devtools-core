@@ -159,18 +159,6 @@ a directory containing `SKILL.md` (YAML frontmatter + Markdown), plus optional
   only at invocation time, as "Unknown skill" — mid-task, in the worst case silently.
   Verify with `test -e` and a readable `SKILL.md`, never a visual scan.
 
-### Shell snippets inside skills
-
-A snippet in a skill body runs in a shell nobody declared — zsh locally, bash in most
-cloud sandboxes. Both classes below are *valid syntax in both shells*, so `bash -n` and
-`zsh -n` pass on precisely the bugs they exist to catch.
-
-- **Quote every expansion; iterate with `while IFS= read -r x`, never `for x in $VAR`.**
-  zsh does not word-split unquoted parameters, so the `for` form silently iterates once,
-  over the whole string.
-- **Never name a variable `path`, `cdpath`, `fpath`, `manpath`, or `prompt`.** zsh ties
-  each to a shell parameter; assigning `path` replaces `PATH` wholesale.
-
 ## Surface 3 — bootstrap
 
 The work a session needs done before turn one: fetching, fast-forwarding, initializing

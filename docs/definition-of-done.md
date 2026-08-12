@@ -36,10 +36,6 @@ first, then read:
 <gate command> > /tmp/check.log 2>&1; echo "EXIT=$?"; tail -40 /tmp/check.log
 ```
 
-Do not substitute `${PIPESTATUS[0]}`: it is bash-only, and in a zsh session it expands
-to nothing at all, printing a bare `EXIT=` that reads as a formatting quirk rather than
-as a failed capture.
-
 **A red gate is fixed, not weakened** — not with a new baseline, a broadened
 suppression, or a relaxed config. Where a gate genuinely cannot be satisfied, stop and
 say so.
