@@ -353,8 +353,7 @@ change.
   source of the checklist's "assert a positive property" rule
 - [`definition-of-done.md`](definition-of-done.md) — the gates surface, and where each
   repo names its own
-- [`documentation-style-guide.md`](documentation-style-guide.md) — house conventions;
-  note that its two-hop reachability rule should root at `AGENTS.md`
+- [`documentation-style-guide.md`](documentation-style-guide.md) — house conventions
 - [`devtools-propagation.md`](devtools-propagation.md) — how a change here reaches
   consumers, given pinned edges *(fleet-internal: carries the consumer inventory and is
   deliberately not published to the mirror — the link resolves only inside a fleet checkout)*

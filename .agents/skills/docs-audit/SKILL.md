@@ -26,19 +26,15 @@ Execute the following phases in order.
 
 1. Read the documentation style quickstart from the path resolved above. This is the reference standard for all checks.
 
-2. Read the project's root instruction file — `AGENTS.md`, or `CLAUDE.md` where no `AGENTS.md` exists. This is the navigation root for the two-hop reachability check.
+2. Enumerate all `.md` files under `docs/` recursively (with a file-glob lookup). This includes `docs/README.md` and every directory `README.md` — index files are audited like any other document. **Exclude `_TEMPLATE.md`** files — they are templates, not auditable documents.
 
-3. Enumerate all `.md` files under `docs/` recursively (with a file-glob lookup). **Exclude `_TEMPLATE.md`** files — they are templates, not auditable documents.
-
-4. Identify `docs/README.md` (the documentation index) if it exists. This is used for index-completeness checks.
-
-5. Parse the scope argument from `$ARGUMENTS` (defaults to `all` if empty or not provided). Valid scopes:
+3. Parse the scope argument from `$ARGUMENTS` (defaults to `all` if empty or not provided). Valid scopes:
    - `all` — Run style, navigation, and accuracy checks
    - `style` — Only style compliance checks
    - `navigation` — Only navigation and link checks
    - `accuracy` — Only content accuracy checks
 
-6. Print a summary: "Found N documents to audit. Scope: [scope]. Index: [found/not found]. AGENTS.md: [found/not found]."
+4. Print a summary: "Found N documents to audit. Scope: [scope]."
 
 ---
 
@@ -49,8 +45,6 @@ Launch **up to 3 parallel analysis agents**, each analyzing a batch of documents
 Each analysis agent receives:
 - The full text of the documentation style quickstart (from Phase 1)
 - The list of documents to analyze (file paths)
-- The content of `docs/README.md` (if it exists)
-- The list of all links found in the root instruction file (`AGENTS.md`, or `CLAUDE.md` where no `AGENTS.md` exists)
 - The scope filter (which check categories to run)
 - The analysis protocol below
 
@@ -78,13 +72,9 @@ For each document, the subagent must read the file and perform the applicable ch
 
 ### Navigation checks (scope: `all` or `navigation`)
 
-1. **Listed in index** — If `docs/README.md` exists, check whether this document is referenced (linked) somewhere in the index file. Files under `<tasks>/` are exempt (task indexes are optional per the style guide).
+1. **Relative links resolve** — Extract all relative markdown links (`[text](path)`) from the document and verify each target file exists by globbing from the document's directory. Ignore external URLs (`http://`, `https://`) and anchor-only links (`#section`). Run this over every enumerated document — `docs/README.md` and directory `README.md`s included — so a broken index link surfaces here like any other broken link.
 
-2. **Reachable from the root instruction file** — If the project's `AGENTS.md` exists, check whether the document is reachable within 2 hops. Hop 1: links in `AGENTS.md`. Hop 2: links in the documents linked from `AGENTS.md`. Where no `AGENTS.md` exists, root the check at `CLAUDE.md` instead. The analysis agent uses the pre-extracted link lists from Phase 1 to determine this. Files under `<tasks>/` are exempt.
-
-3. **Relative links resolve** — Extract all relative markdown links (`[text](path)`) from the document and verify each target file exists by globbing from the document's directory. Ignore external URLs (`http://`, `https://`) and anchor-only links (`#section`).
-
-4. **See Also links resolve** — If a `## See also` section exists, verify each link in it resolves to an existing file.
+2. **See Also links resolve** — If a `## See also` section exists, verify each link in it resolves to an existing file.
 
 ### Accuracy checks (scope: `all` or `accuracy`)
 
@@ -151,19 +141,15 @@ Compile all findings from Phase 2 (excluding issues already auto-fixed in Phase 
 
 1. **Missing scope statements** — List each file that lacks a scope statement after its H1.
 
-2. **Navigation gaps** — List documents not reachable from the root instruction file (`AGENTS.md`, or `CLAUDE.md` where no `AGENTS.md` exists) within 2 hops.
+2. **Broken links** — List each broken link with the source file, the link text, and the expected target path. Index files (`docs/README.md`, directory `README.md`s) are covered by the same check as every other document.
 
-3. **Broken links** — List each broken link with the source file, the link text, and the expected target path.
+3. **Heading issues** — List files with skipped heading levels or incorrect heading case, noting the specific headings.
 
-4. **Heading issues** — List files with skipped heading levels or incorrect heading case, noting the specific headings.
+4. **Filename convention violations** — List files using SCREAMING_SNAKE_CASE or other non-kebab-case names.
 
-5. **Filename convention violations** — List files using SCREAMING_SNAKE_CASE or other non-kebab-case names.
+5. **Missing See Also** — List substantial documents (>50 lines) that lack a See Also section (where a stub was NOT auto-added because the document is a task or other exempt type, or the auto-fix was not applied for another reason).
 
-6. **Missing from index** — List documents not referenced in `docs/README.md`.
-
-7. **Missing See Also** — List substantial documents (>50 lines) that lack a See Also section (where a stub was NOT auto-added because the document is a task or other exempt type, or the auto-fix was not applied for another reason).
-
-8. **Date fields present** — List documents with date metadata that should be removed. Task documents are not exempt; a `Created` field there is a leftover of the pre-2026-07-26 task format.
+6. **Date fields present** — List documents with date metadata that should be removed. Task documents are not exempt; a `Created` field there is a leftover of the pre-2026-07-26 task format.
 
 Omit any category that has no findings.
 
@@ -187,11 +173,9 @@ Total count of documents audited.
 | Category | Found | Auto-fixed | Manually Fixed | Remaining |
 |----------|-------|------------|----------------|-----------|
 | Missing scope statements | N | — | N | N |
-| Navigation gaps | N | — | N | N |
 | Broken links | N | — | N | N |
 | Heading issues | N | — | N | N |
 | Filename violations | N | — | N | N |
-| Missing from index | N | — | N | N |
 | Code block languages | N | N | — | 0 |
 | Missing See Also | N | N | N | N |
 | Date fields | N | — | N | N |

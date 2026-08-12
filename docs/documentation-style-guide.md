@@ -13,7 +13,7 @@ apply to Unity game projects, web CMS projects, and shared infrastructure alike.
 - **See also**: End substantial docs with related links
 - **Structure**: Consistent across similar documents; sections should be self-contained
 - **AI-friendly**: Explicit file paths, no ambiguous pronouns, Mermaid for structural diagrams
-- **Navigation**: Every doc reachable from `AGENTS.md` (or `CLAUDE.md` where no `AGENTS.md` exists) in two hops or fewer
+- **Discoverability**: Agents find docs by search and injected context — descriptive filenames and scope-statement vocabulary; whatever index exists must be accurate
 - **Dates**: No dates in docs — no exceptions, task documents included. Git is the source of truth
 
 > **Quick reference**: For essential rules only, see
@@ -56,7 +56,7 @@ apply to Unity game projects, web CMS projects, and shared infrastructure alike.
 ### Shared goals
 
 - **Accurate**: Keep documentation synchronized with code
-- **Discoverable**: Make information findable within two hops from `AGENTS.md` (or `CLAUDE.md` where no `AGENTS.md` exists)
+- **Discoverable**: Optimize for search and injected context — descriptive filenames and scope statements carrying the vocabulary a searcher would use; whatever index exists must be accurate
 - **Maintainable**: Write documentation that is easy to update and hard to make stale
 
 ---
@@ -107,17 +107,19 @@ Avoid `SCREAMING_SNAKE_CASE.md` for new documents. Existing files in older proje
 
 ### Directory README files
 
-Every documentation directory should have a `README.md` containing:
+Directory READMEs are optional human-facing curation, not a requirement. Where one exists, it should contain:
 
 1. **Purpose statement**: What this directory contains
 2. **Guidelines**: When to add documents here
 3. **Document index** (conditional): Table listing files with descriptions
 
-| Directory type | Index table | Rationale |
-|----------------|-------------|-----------|
-| Stable reference (`architecture/`, `style-guides/`) | Required | Aids navigation; content rarely changes |
-| Active work (`tasks/now/`, `tasks/soon/`) | Optional | File names are descriptive; avoid maintenance burden |
-| Ideas / brainstorming | Not required | Low-friction capture is more important than indexing |
+A README that exists must be accurate: every link resolves, no row describes a missing file.
+
+| Directory type | A README helps most | Rationale |
+|----------------|---------------------|-----------|
+| Stable reference (`architecture/`, `style-guides/`) | Usually | Aids navigation; content rarely changes |
+| Active work (`tasks/now/`, `tasks/soon/`) | Rarely | File names are descriptive; avoid maintenance burden |
+| Ideas / brainstorming | Rarely | Low-friction capture is more important than indexing |
 
 ---
 
@@ -195,7 +197,7 @@ Reference to relevant code files (for technical docs).
 
 ### See also sections
 
-Substantial documents (anything beyond a short reference or task) should end with a "See also" section linking to related docs. This creates navigable paths through the documentation and supports the two-hop navigation rule.
+Substantial documents (anything beyond a short reference or task) should end with a "See also" section linking to related docs. This creates navigable paths through the documentation and reinforces the vocabulary a searcher would use.
 
 ```markdown
 ## See also
@@ -418,14 +420,9 @@ Anchor rules:
 - Spaces become hyphens
 - Special characters removed
 
-### Two-hop navigation rule
+### Discoverability
 
-**Every document should be reachable from `AGENTS.md` within two hops** (`AGENTS.md` -> index doc -> target doc; root the check at `CLAUDE.md` where no `AGENTS.md` exists). This ensures AI agents and humans can discover any document quickly.
-
-When adding new documents:
-1. Ensure the document is linked from its directory's `README.md`
-2. Ensure that `README.md` is linked from a higher-level index or the root instruction file (`AGENTS.md`, or `CLAUDE.md` where no `AGENTS.md` exists)
-3. Verify the path: can you reach your new doc from `AGENTS.md` (or `CLAUDE.md` where no `AGENTS.md` exists) in two clicks or fewer?
+Agents and humans find documents by search and by injected context, so optimize for those: descriptive kebab-case filenames, a scope statement carrying the vocabulary a searcher would use (both already standing rules), and an accurate root instruction file. Directory READMEs and `docs/README.md` are optional human-facing curation; whatever index exists must be accurate — every link resolves, no row describes a missing file.
 
 ### Bidirectional code-doc links
 
@@ -857,7 +854,6 @@ Current third-party libraries used in the project. Maintained by `/update-librar
 2. **Completeness**: Are there gaps in coverage?
 3. **Clarity**: Can a newcomer understand it?
 4. **AI-friendliness**: Is context explicit? Structure consistent?
-5. **Navigation**: Is it reachable from `AGENTS.md` (or `CLAUDE.md` where no `AGENTS.md` exists) in two hops?
 
 ### Versioning
 
