@@ -68,7 +68,8 @@ target and no credentials for it. Do not invent a channel: opening an issue
 fails on exactly the token scope that made the session blind in the first place.
 
 **Write the same task-shaped brief into your own repo's
-`docs/planning/handoffs/`** with `handoff-to:`, then **commit and push it**.
+`docs/work/handoffs/`** — legacy `docs/planning/handoffs/` as the pre-migration
+fallback — with `handoff-to:`, then **commit and push it**.
 Filing is complete only when the brief is on your remote — an unpushed draft is
 not yet filed, and nothing will find it.
 
@@ -81,7 +82,8 @@ and the sweep collects it."
 
 The sweep is **content-keyed, not location-keyed** — it matches the frontmatter
 key wherever the file sits. A brief filed somewhere else for a locally sensible
-reason is still found. Prefer `docs/planning/handoffs/` anyway, because a reader
+reason is still found. Prefer `docs/work/handoffs/` — legacy
+`docs/planning/handoffs/` as the pre-migration fallback — anyway, because a reader
 looking for one should not have to run a sweep.
 
 ### Routing a pending brief

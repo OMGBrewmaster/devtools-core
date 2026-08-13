@@ -1,6 +1,6 @@
 # Kaizen — continuous improvement of how we build
 
-The canonical guide to the kaizen practice shared across OMG Brews projects. A project adopts kaizen by adding a `docs/kaizen/` directory (a `journal/` tree and a `patterns/` directory, one entry per file) and pointing back here for the methodology. Run `/kaizen-init` to scaffold it. Read this when you want to understand the practice, write a journal entry, or run a patterns review.
+The canonical guide to the kaizen practice shared across OMG Brews projects. A project adopts kaizen by adding a `docs/work/kaizen/` directory (a `journal/` tree and a `patterns/` directory, one entry per file; legacy `docs/kaizen/` as the pre-migration fallback) and pointing back here for the methodology. Run `/kaizen-init` to scaffold it. Read this when you want to understand the practice, write a journal entry, or run a patterns review.
 
 ## What is this?
 
@@ -22,20 +22,20 @@ These projects share three properties that amplify kaizen's leverage:
 
 ### Scope
 
-Kaizen exists to improve **how we build** — the collaboration loops between humans, AI agents, and tooling. It is *not* a place for feature concepts, capability ideas, product gaps, or "the X feature should also do Y" — those belong wherever the project tracks future work (e.g. `docs/tasks/` or a planning/ideas area). Keeping the boundary tight is what lets the journal stay useful as a process-improvement signal: mixing in feature ideation dilutes it and makes patterns harder to extract.
+Kaizen exists to improve **how we build** — the collaboration loops between humans, AI agents, and tooling. It is *not* a place for feature concepts, capability ideas, product gaps, or "the X feature should also do Y" — those belong wherever the project tracks future work (e.g. `docs/work/tasks/` — legacy `docs/tasks/` as the pre-migration fallback — or a planning/ideas area). Keeping the boundary tight is what lets the journal stay useful as a process-improvement signal: mixing in feature ideation dilutes it and makes patterns harder to extract.
 
 ## The two collections a project keeps
 
 | Collection | Lives in the project at | Description |
 |------------|-------------------------|-------------|
-| Journal | `docs/kaizen/journal/YYYY-MM/YYYY-MM-DD-<slug>.md` | Running log of friction, errors, and lessons — **one entry per file**. Content-immutable: an entry is written once and never revised, but it does not live forever — see *The journal's lifecycle* below. |
-| Patterns | `docs/kaizen/patterns/<slug>.md` | Recurring themes distilled from the journal, with mitigations and status — **one pattern per file**. Present-tense synthesis. |
+| Journal | `docs/work/kaizen/journal/YYYY-MM/YYYY-MM-DD-<slug>.md` (legacy `docs/kaizen/journal/YYYY-MM/YYYY-MM-DD-<slug>.md`) | Running log of friction, errors, and lessons — **one entry per file**. Content-immutable: an entry is written once and never revised, but it does not live forever — see *The journal's lifecycle* below. |
+| Patterns | `docs/work/kaizen/patterns/<slug>.md` (legacy `docs/kaizen/patterns/<slug>.md`) | Recurring themes distilled from the journal, with mitigations and status — **one pattern per file**. Present-tense synthesis. |
 
 **One entry per file, filed under a year-month directory.** A journal grows forever, so a single file eventually charges every reader the whole history to read one lesson, and its prepend-at-top convention makes the first lines a standing merge conflict between concurrent sessions. Month directories keep any one listing browsable at the ~30-entries-per-month a busy project generates; per-file entries make concurrent journaling conflict-free and give each entry its own git history.
 
-There is **no index file**. `ls` is the index, and `grep -h '^# ' docs/kaizen/journal/*/*.md` lists every title. An index that must be hand-updated on every entry is a drift liability, and nothing loads the journal wholesale, so it would buy nothing. The singleton watchlist introduced below is not an index and must not be allowed to become one: an index is **per-entry and exhaustive**, so every write to the journal is a write to it and it drifts by default; the watchlist is **per-review and curated** — it holds only the entries a review could not match, it is written by one skill at one moment, and it shrinks as entries cluster or age out. The distinction is what stops it inheriting the drift liability.
+There is **no index file**. `ls` is the index, and `grep -h '^# ' docs/work/kaizen/journal/*/*.md` (legacy `docs/kaizen/journal/*/*.md`) lists every title. An index that must be hand-updated on every entry is a drift liability, and nothing loads the journal wholesale, so it would buy nothing. The singleton watchlist introduced below is not an index and must not be allowed to become one: an index is **per-entry and exhaustive**, so every write to the journal is a write to it and it drifts by default; the watchlist is **per-review and curated** — it holds only the entries a review could not match, it is written by one skill at one moment, and it shrinks as entries cluster or age out. The distinction is what stops it inheriting the drift liability.
 
-A project's `docs/kaizen/README.md` is a short pointer back to this guide — the methodology is shared and lives here, so it improves in one place rather than drifting across repos. Repos still on the older single-file layout (`journal.md` + `patterns.md`) convert with `devtools/Tools/migrate-kaizen-journal.sh`; it is idempotent and refuses rather than dropping an entry it cannot file.
+A project's `docs/work/kaizen/README.md` (legacy `docs/kaizen/README.md`) is a short pointer back to this guide — the methodology is shared and lives here, so it improves in one place rather than drifting across repos. Repos still on the older single-file layout (`journal.md` + `patterns.md`) convert with `devtools/Tools/migrate-kaizen-journal.sh`; it is idempotent and refuses rather than dropping an entry it cannot file.
 
 ## The journal's lifecycle
 
@@ -43,7 +43,7 @@ A journal that only ever grows does not make the *review* slower — a review wo
 
 ### Consumed — deleted with the artifact that absorbed it
 
-An entry is **consumed** when a live artifact cites it as evidence: a `patterns/<slug>.md`, or a `docs/problems/<slug>.md`. Its lesson now lives somewhere present-tense, and the entry is the receipt. When that artifact dies — a pattern graduated and deleted, a problem verified gone and deleted — its evidence entries are deleted **in the same commit**, provided nothing else live still cites them.
+An entry is **consumed** when a live artifact cites it as evidence: a `patterns/<slug>.md`, or a `docs/work/problems/<slug>.md` (legacy `docs/problems/<slug>.md`). Its lesson now lives somewhere present-tense, and the entry is the receipt. When that artifact dies — a pattern graduated and deleted, a problem verified gone and deleted — its evidence entries are deleted **in the same commit**, provided nothing else live still cites them.
 
 Same commit, not later and not earlier, and both halves of that matter:
 
@@ -67,7 +67,7 @@ Any hit from something still live — another pattern, a problem document, a tas
 
 An entry that clusters with nothing is a **singleton**: possibly the first instance of a real pattern, possibly a one-off. It is evidence for nothing, so no artifact will ever bring it back into view, and a windowed review three months later will never see it. Naming it in a review report is not enough — the report is a chat message and it is gone by the next pass. It goes on the watchlist instead.
 
-The watchlist is `docs/kaizen/singletons.md`, a sibling of `journal/` and `patterns/`, one line per singleton:
+The watchlist is `docs/work/kaizen/singletons.md` (legacy `docs/kaizen/singletons.md`), a sibling of `journal/` and `patterns/`, one line per singleton:
 
 ```markdown
 - [2026-07-14 — tab-delimited jq output silently collapsed an empty field](journal/2026-07/2026-07-14-tab-delimited-jq-output-silently-collapsed-an-empty-field.md) — a positional format cannot express an absent field, so a shifted row still parses as data
@@ -131,7 +131,7 @@ An entry compounds when it lets a future reader (or a future AI session) recogni
 
 **Where the entry goes**
 
-One file per entry, at `docs/kaizen/journal/YYYY-MM/YYYY-MM-DD-<slug>.md` — create the month directory if it does not exist. The slug is the title lowercased with every run of non-alphanumeric characters replaced by a hyphen, capped at ~60 characters on a word boundary. The full date stays in the filename even inside the month directory, so a filename remains self-describing when it is linked from a pattern, quoted in a PR, or grepped on its own.
+One file per entry, at `docs/work/kaizen/journal/YYYY-MM/YYYY-MM-DD-<slug>.md` (legacy `docs/kaizen/journal/YYYY-MM/YYYY-MM-DD-<slug>.md`) — create the month directory if it does not exist. The slug is the title lowercased with every run of non-alphanumeric characters replaced by a hyphen, capped at ~60 characters on a word boundary. The full date stays in the filename even inside the month directory, so a filename remains self-describing when it is linked from a pattern, quoted in a PR, or grepped on its own.
 
 **Entry format**
 
@@ -151,7 +151,7 @@ The date is carried by the filename, not repeated in the heading, and entries ta
 
 Every ~2 weeks or after a sprint, review recent journal entries (the newest month directories). Look for entries that share a root cause, and route each cluster by what it is:
 
-- **A standing, fixable flaw** — broken tooling, an ungated mirror, a script defect: anything where "verified gone" is a meaningful endpoint — becomes a **problem document** (`docs/problems/`, seeded from `devtools/docs/templates/problems/README.md`), plus a task where the fix is already concrete. It does not become a pattern: a pattern tracks a *tendency*, a problem tracks a *state*, and the problem lifecycle — persists until the flaw is verified gone; a task completing is not the trigger — is the right home for anything a fix can end.
+- **A standing, fixable flaw** — broken tooling, an ungated mirror, a script defect: anything where "verified gone" is a meaningful endpoint — becomes a **problem document** (`docs/work/problems/` — legacy `docs/problems/` as the pre-migration fallback — seeded from `devtools/docs/templates/problems/README.md`), plus a task where the fix is already concrete. It does not become a pattern: a pattern tracks a *tendency*, a problem tracks a *state*, and the problem lifecycle — persists until the flaw is verified gone; a task completing is not the trigger — is the right home for anything a fix can end.
 - **A recurring tendency whose countermeasure is statable today** — graduate it, in the same pass, under the contract below.
 - **A recurring tendency not yet statable** — create or update `patterns/<slug>.md` with evidence, mitigation, and status, and let it accumulate until it is.
 
@@ -175,7 +175,7 @@ Graduate in one pass, in this order: **write the destination, verify it from the
 
 **Pattern format**
 
-One file per pattern, at `docs/kaizen/patterns/<slug>.md`:
+One file per pattern, at `docs/work/kaizen/patterns/<slug>.md` (legacy `docs/kaizen/patterns/<slug>.md`):
 
 ```markdown
 # [Pattern name]
@@ -197,7 +197,7 @@ Link evidence as `[2026-07-12 — two log dirs](../journal/2026-07/2026-07-12-tw
 
 - `docs/templates/kaizen/` — the starter scaffold: a per-repo `README.md` plus `journal/` and `patterns/` directories
 - `Tools/migrate-kaizen-journal.sh` — converts a repo from the older single-file `journal.md` / `patterns.md` layout
-- The `/kaizen-init` skill — scaffolds `docs/kaizen/` into a project and adds the CLAUDE.md pointer
+- The `/kaizen-init` skill — scaffolds `docs/work/kaizen/` (legacy `docs/kaizen/`) into a project and adds the CLAUDE.md pointer
 - The `/session-end` skill — the per-session Check-stage checkpoint that captures friction before it evaporates
 - The `/kaizen-review` skill — the periodic Act-stage pass: the *Analysis* section above, run. It clusters the entries written since the last review into `patterns/`, walks each graduation with you before applying it, and is the sole writer of the singleton watchlist and the sole executor of the pattern side of *The journal's lifecycle*
-- The `/kaizen-resolve` skill — the same lifecycle's problem side, run: verifying a `docs/problems/` document's flaw gone from the world's side, deleting it, and cascading into the entries it consumed, all behind the citation gate above
+- The `/kaizen-resolve` skill — the same lifecycle's problem side, run: verifying a `docs/work/problems/` document's flaw gone from the world's side — legacy `docs/problems/` as the pre-migration fallback — deleting it, and cascading into the entries it consumed, all behind the citation gate above

@@ -13,7 +13,7 @@ Prepare a task for execution by a later session: verify the task's claims agains
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
+- **Tasks root**: `docs/work/tasks/` if it exists, else the legacy `docs/tasks/`, else `docs/planning/tasks/` — written as `<tasks>/` below. If none exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 
 Finalization's deliverable is a task verified, decided, and stamped. This skill edits and stages files (it never renames or moves a task), ends with a commit offer, and **never pushes** — synchronizing git with the remote is the user's, outside this skill. The run's classification decides the offer's shape:
 

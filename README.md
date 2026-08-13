@@ -37,8 +37,9 @@ directly is overwritten by the next publish.
 | `docs/templates/` | Copy-paste-ready templates for architecture docs, feature docs, ADRs, and directory READMEs |
 
 The task skills are repo-agnostic: they find the tasks directory themselves
-(`docs/tasks/`, else `docs/planning/tasks/`) and turn on queue behaviour only
-where a `queued/` bucket exists.
+(`docs/work/tasks/`, with the legacy `docs/tasks/` — or `docs/planning/tasks/` —
+as the pre-migration fallback) and turn on queue behaviour only where a
+`queued/` bucket exists.
 
 ## Using it in a project
 

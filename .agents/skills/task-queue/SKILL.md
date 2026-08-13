@@ -7,8 +7,8 @@ compatibility: Requires the Claude Code CLI. The bundled runner launches each wo
 # Task Queue Loop
 
 Autonomously processes tasks from `<tasks>/queued/` one at a time, each in a
-fresh Claude Code session. (`<tasks>` is the repo's tasks root: `docs/tasks/`
-if it exists, else `docs/planning/tasks/` — `run.sh` detects this itself. A
+fresh Claude Code session. (`<tasks>` is the repo's tasks root: `docs/work/tasks/`
+if it exists, else the legacy `docs/tasks/`, else `docs/planning/tasks/` — `run.sh` detects this itself. A
 repo opts into the queue by creating `<tasks>/queued/`; without that
 directory this skill doesn't apply.)
 

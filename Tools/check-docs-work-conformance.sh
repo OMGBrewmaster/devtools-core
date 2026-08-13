@@ -231,8 +231,10 @@ fi
 
 # --- 3: problem documents (opt-in, kaizen's output) ---------------------------
 # The registry names the problems README as a required part of the collection.
-if [ ! -d docs/work/problems ] && [ ! -d docs/problems ]; then
-    absent 3 "no problem documents (docs/work/problems/ and legacy docs/problems/ both absent)"
+# Legacy roots: docs/problems/ (the fleet default) and docs/planning/problems/
+# (llmkit-dev's severity-bucket variant) — both must migrate.
+if [ ! -d docs/work/problems ] && [ ! -d docs/problems ] && [ ! -d docs/planning/problems ]; then
+    absent 3 "no problem documents (docs/work/problems/ and the legacy roots docs/problems/, docs/planning/problems/ all absent)"
 else
     problems=""
     if [ ! -d docs/work/problems ]; then
@@ -242,6 +244,9 @@ else
     fi
     if [ -d docs/problems ]; then
         problems="${problems}legacy problems root docs/problems/ remains — delete it once the migration lands; "
+    fi
+    if [ -d docs/planning/problems ]; then
+        problems="${problems}legacy problems root docs/planning/problems/ remains — delete it once the migration lands; "
     fi
     if [ -n "$problems" ]; then
         fail 3 "$problems"
@@ -362,7 +367,11 @@ fi
 
 # --- 9: the _TEMPLATE.md symlink (required for task-system repos) -------------
 # A symlink, never a copy; non-dangling; resolving into this repo's own
-# devtools or devtools-core checkout (the mirror consumers mount).
+# .agents/skills/task-create/ (the devtools source-repo shape), or into this
+# repo's devtools or devtools-core checkout (the mirror consumers mount).
+# The devtools/ and devtools-core/ cases are matched by exact file, not by
+# directory prefix: a repo-local directory that merely happens to be named
+# devtools/ (pia-maker's devtools/ Python package) must not satisfy the clause.
 if [ "$tasks_active" -eq 0 ]; then
     absent 9 "no task system — no tasks root to hold the template symlink"
 elif [ ! -L docs/work/tasks/_TEMPLATE.md ]; then
@@ -375,7 +384,10 @@ else
     if resolved=$(resolve_chain docs/work/tasks/_TEMPLATE.md); then
         root_abs=$(pwd -P)
         case "$resolved" in
-            "$root_abs"/devtools/* | "$root_abs"/devtools-core/*)
+            "$root_abs"/.agents/skills/task-create/_TEMPLATE.md)
+                pass 9 "docs/work/tasks/_TEMPLATE.md resolves into this repo's own skill tree (.agents/skills/task-create/_TEMPLATE.md — the devtools source-repo shape)"
+                ;;
+            "$root_abs"/devtools/.agents/skills/task-create/_TEMPLATE.md | "$root_abs"/devtools-core/.agents/skills/task-create/_TEMPLATE.md)
                 rel="${resolved#"$root_abs"/}"
                 pass 9 "docs/work/tasks/_TEMPLATE.md resolves into this repo's own devtools checkout ($rel)"
                 ;;

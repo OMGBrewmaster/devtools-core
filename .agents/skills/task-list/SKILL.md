@@ -9,7 +9,7 @@ Summarize all tasks in this repo's tasks directory.
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/tasks/` if it exists, else `docs/planning/tasks/`. Written as `<tasks>/` below. If neither exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
+- **Tasks root**: `docs/work/tasks/` if it exists, else the legacy `docs/tasks/`, else `docs/planning/tasks/` — written as `<tasks>/` below. If none exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` (when it exists) is owned by the autonomous task-queue runner — list it separately, read-only, and never count it toward the human buckets.
 
 ## Phase 1 — Find Tasks

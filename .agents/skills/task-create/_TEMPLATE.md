@@ -6,10 +6,10 @@ dependencies: []
 ---
 
 <!-- Template for new tasks. Copy this file into a bucket (`now/`, `soon/`,
-     `later/`, `never/`) under the repo's tasks directory (`docs/tasks/`, or
-     `docs/planning/tasks/` where the repo keeps tasks under planning), fill in
-     the placeholders, and delete this preamble block plus any optional
-     sections you don't need.
+     `later/`, `never/`) under the repo's tasks directory (`docs/work/tasks/`;
+     the legacy `docs/tasks/` and `docs/planning/tasks/` are the pre-migration
+     fallback), fill in the placeholders, and delete this preamble block plus
+     any optional sections you don't need.
 
      Frontmatter fields (all four required; the task skills and the
      task-queue runner parse them):

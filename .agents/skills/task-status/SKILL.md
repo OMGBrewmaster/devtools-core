@@ -10,8 +10,9 @@ argument, of every task in this repo?** Consult the task file, the code and
 documentation it names, the git history, and anything else relevant before
 delivering your report. You decide what is important to report; there is no
 template. Given a task file (`task-status <task-file>`), go deep on that one.
-Given none, sweep the tasks root — `docs/tasks/` or `docs/planning/tasks/`,
-buckets `now/ soon/ later/ never/`, plus `queued/` where the autonomous runner
+Given none, sweep the tasks root — `docs/work/tasks/` if it exists, else the
+legacy `docs/tasks/`, else `docs/planning/tasks/` — buckets
+`now/ soon/ later/ never/`, plus `queued/` where the autonomous runner
 is in use — and keep each verdict brief. Scope is this repo only; sibling
 clones in a workspace checkout are out of scope.
 
