@@ -49,7 +49,7 @@ holdout demands it, exactly one bridge.
 | **Skills** | `.agents/skills/<name>/SKILL.md` | per-skill symlink `.claude/skills/<name> -> ../../.agents/skills/<name>` | Claude Code sees no skills |
 | **Bootstrap** | a plain script, e.g. `scripts/agent/session-start.sh` | thin `.claude/hooks/*.sh` wrapper that emits the hook JSON envelope | Non-Claude sessions start on a stale checkout with uninitialized submodules |
 | **Tool config (MCP)** | none — genuinely per-harness | `.mcp.json` (Claude Code, Cursor); `.vscode/mcp.json` uses a different key | Only the harnesses you wrote config for get the servers |
-| **Gates** | `make check` + `docs/tasks/definition-of-done.md` | none needed — a command is a command | — |
+| **Gates** | `make check` + `docs/work/definition-of-done.md` | none needed — a command is a command | — |
 
 The instructions and skills surfaces are settled standards. The bootstrap surface is the
 one most repos get wrong, because a hook that only fires in one harness looks like it
@@ -217,7 +217,7 @@ top-level `servers` key; Codex uses `~/.codex/config.toml`.
 
 The most portable surface, and it needs no bridge: a command is a command.
 
-- Every repo names its gates in `docs/tasks/definition-of-done.md` (see
+- Every repo names its gates in `docs/work/definition-of-done.md` (see
   [`definition-of-done.md`](definition-of-done.md)).
 - Gates are invoked as plain commands (`make check`), never through a harness feature.
 - The doc is linked from `AGENTS.md` as well as imported into `CLAUDE.md`.

@@ -57,7 +57,7 @@ Content moves from Draft through Review to Approved, then Published.
 
 ## Task document format
 
-Tasks live in `docs/tasks/` in time-horizon buckets (`now/`, `soon/`, `later/`, `never/`) — or `docs/planning/tasks/` where a repo keeps tasks under planning; the task skills detect either. Each follows `_TEMPLATE.md`, which is a **symlink** to the canonical file inside the `task-create` skill. Never replace that symlink with a copy: that is how the template drifted into seven variants before the 2026-07-26 convergence.
+Tasks live in `docs/work/tasks/` in time-horizon buckets (`now/`, `soon/`, `later/`, `never/`), plus the opt-in `queued/` where the repo runs the autonomous task-queue runner. Each follows `_TEMPLATE.md`, which is a **symlink** to the canonical file inside the `task-create` skill. Never replace that symlink with a copy: that is how the template drifted into seven variants before the 2026-07-26 convergence.
 
 Metadata is YAML frontmatter, not bold lines:
 
