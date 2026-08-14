@@ -78,8 +78,22 @@ set -u
 # both are three deep) yields the mounting repo's root for symlinked,
 # vendored, and native layouts alike.
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-if [[ ! -e "$ROOT/.git" ]]; then
-  echo "[task-queue] error: resolved repo root '$ROOT' has no .git — this script expects to be invoked as <repo>/.agents/skills/task-queue/run.sh (or through the .claude/skills bridge)" >&2
+if ! ROOT_TOPLEVEL="$(git -C "$ROOT" rev-parse --show-toplevel)"; then
+  echo "[task-queue] error: resolved repo root '$ROOT' is not a readable Git worktree; no repository root could be discovered" >&2
+  exit 1
+fi
+if [[ "$ROOT_TOPLEVEL" != "$ROOT" ]]; then
+  echo "[task-queue] error: resolved repo root '$ROOT' is not the Git worktree root; Git reports enclosing toplevel '$ROOT_TOPLEVEL'" >&2
+  echo "[task-queue] invoke from that repository instead: bash $ROOT_TOPLEVEL/.agents/skills/task-queue/run.sh" >&2
+  exit 1
+fi
+if ! ROOT_SUPERPROJECT="$(git -C "$ROOT" rev-parse --show-superproject-working-tree)"; then
+  echo "[task-queue] error: resolved repo root '$ROOT' could not be classified as a top-level Git worktree" >&2
+  exit 1
+fi
+if [[ -n "$ROOT_SUPERPROJECT" ]]; then
+  echo "[task-queue] error: resolved repo root '$ROOT' is a submodule of '$ROOT_SUPERPROJECT', not a supported top-level worktree" >&2
+  echo "[task-queue] invoke from the mounting repository instead: bash $ROOT_SUPERPROJECT/.agents/skills/task-queue/run.sh" >&2
   exit 1
 fi
 # Tasks root: docs/work/tasks/ (the machine-owned location) with the legacy

@@ -173,9 +173,9 @@ Apply these steps in order. After each step, recompute bucket counts so the next
 
 For each readiness or evidence signal from Phase 2:
 
-- **>50% progress outside `now/`** → schedule a move to `now/`. Rationale: "in-flight (X/Y criteria done)".
-- **Blocked in `now/`** → schedule a demote to `soon/`. Rationale: "status=blocked; revisit when unblocked". **Focus does not change this demotion** — an in-focus blocked task still leaves `now/`. What it changes is what happens next: mark an in-focus one **trim-protected**, and Step 5 will not push it on to `later/` (rubric § How much focus weighs). Note the protection in the rationale, with the citation.
-- **All acceptance criteria checked in `now/`, or audit-confirmed complete** → schedule a deletion. Rationale: "all criteria met; flag for removal" (cite audit evidence where available).
+- **All acceptance criteria checked in any bucket, or audit-confirmed complete** → schedule a deletion. Rationale: "all criteria met; flag for removal" (cite audit evidence where available). This takes precedence over every other readiness action.
+- **Blocked in `now/`** → schedule a demote to `soon/`. Rationale: "status=blocked; revisit when unblocked". **Focus does not change this demotion** — an in-focus blocked task still leaves `now/`. What it changes is what happens next: mark an in-focus one **trim-protected**, and Step 5 will not push it on to `later/` (rubric § How much focus weighs). Note the protection in the rationale, with the citation. A blocked task outside `now/` is never promoted because of progress or in-flight status.
+- After those completion and blocked-state actions, **recompute `now/`**. If it is below its target of three, rank every remaining task outside `now/` with `status: in-progress` or any checked acceptance criterion by higher progress fraction, explicit priority (`high`, then neutral `medium`, then `low`), older creation time, smaller effort, then task slug alphabetical. Promote only enough eligible tasks to fill the open slots. Rationale: "in-flight promotion (X/Y criteria done)"; name explicit priority whenever it changed which task received a slot. Eligible tasks that do not fit remain where they are and retain Step 2's anti-demotion protection.
 - **Audit-backed promotion** (blocking work, landed dependency, invalidated parking rationale, velocity work) → schedule the promotion, citing the evidence.
 
 These overrides override shape concerns, and focus does not outrank any of them. They run first so the rest of the plan sees the corrected state.
@@ -186,7 +186,7 @@ For each task currently in `now/`, `soon/`, or `later/` *not* claimed by a Step 
 
 **Focus plays no part in this step.** Categories are decided by `## Scope` alone; focus reorders tasks *within* a category in Step 3, and never moves one between categories. An in-focus foundational rewrite is still **L**.
 
-Before categorizing, apply [`ranking-rubric.md` § In-flight pinning](ranking-rubric.md#in-flight-pinning): a task with any checked acceptance criteria or status `in-progress` stays in its current bucket regardless of category. Note these as "pinned (in-flight)" in the plan output. They still consume a slot toward the bucket's target count.
+Before categorizing, apply [`ranking-rubric.md` § In-flight pinning](ranking-rubric.md#in-flight-pinning): a remaining eligible in-flight task stays in its current bucket only as an **anti-demotion floor** — category and shape may not push it down, but Step 1 may have promoted it. Note these as "pinned (in-flight; anti-demotion)" in the plan output. They still consume a slot toward the bucket's target count.
 
 #### Step 3 — Sub-rank within each category by focus, area-coupling, and tiebreakers
 
@@ -194,14 +194,16 @@ Order the tasks in each category in this sequence:
 
 1. **Focus** (rubric § How much focus weighs) — in-focus above out-of-focus, and below both, anything the `**Not now:**` line names. This runs *first*, ahead of the coupling tiers: it is the strongest thing focus does to ordinary ranking.
 2. **Area-coupling tier** — [`ranking-rubric.md` § Area-coupling tiers](ranking-rubric.md#area-coupling-tiers-a--b--c): **A** (shares an area with a `queued/` task), **B** (distinct from every queued area), **C** (shares an area with an `in-progress` task already in `now/`). In repos without a queue, every task is Tier B unless it matches an `in-progress` task in `now/`.
-3. **Tiebreakers** — [`ranking-rubric.md` § Tiebreakers](ranking-rubric.md#tiebreakers): higher progress fraction, then older creation date, then smaller `effort`.
+3. **Tiebreakers** — [`ranking-rubric.md` § Tiebreakers](ranking-rubric.md#tiebreakers): higher progress fraction, explicit `high` / neutral `medium` / `low` priority, older creation date, smaller `effort`, then task slug alphabetical. Name a placement where explicit priority changed the result.
 
 With no focus document, step 1 is a no-op and the order is the coupling tier then the tiebreakers, exactly as before.
 
 #### Step 4 — Place into target buckets
 
-- Take ranked N candidates, fill `now/` up to **3** slots. Surplus N tasks (rare) overflow to `soon/`.
-- Take ranked S candidates, fill `soon/` up to **3** slots. Surplus S tasks fall to `later/`.
+Before every placement, recompute the receiving bucket's count.
+
+- Fill `now/` from ranked N candidates up to three, recomputing the receiving count for every placement. A surplus N task may overflow to `soon/` only when adding it would not exceed `soon/`'s tolerance ceiling of four; later surplus falls to `later/`.
+- Fill `soon/` from ranked S candidates up to its target of three, counting every task already placed there — pinned tasks, Step 1 demotions, and N overflow. Surplus S tasks fall to `later/`.
 - All L candidates → `later/`.
 
 If `now/` is under-target after N exhausted (e.g. only 2 N tasks exist), pull the top S candidates to backfill — prefer **in-focus** S candidates first, then those whose area doesn't already match a now-placed task. Note these as "(promoted from S — N pool short)" in the rationale, with the focus citation where focus decided which one.
@@ -210,12 +212,13 @@ If `soon/` is under-target after S exhausted, leave it under-target rather than 
 
 #### Step 5 — Trim over-target buckets
 
-If after Step 4 either bucket exceeds target + 1 (tolerance), demote bottom-ranked tasks from that bucket to the next bucket down. Bottom-ranked = out-of-focus before in-focus, then lowest tier within category, then lowest progress, then largest effort. Do not demote a task that was just promoted in this same plan run (avoid promote-then-demote churn).
+If after Step 4 either bucket exceeds target + 1 (tolerance), demote bottom-ranked tasks from that bucket to the next bucket down. Bottom-ranked = out-of-focus before in-focus, then lowest coupling tier within category, then lowest progress, then lowest explicit priority, then largest effort, then task slug alphabetical as the stable final fallback. **Age is not a trim term.** Placement uses older-first because waiting is meaningful there; using that order for trimming would make the newest task lose. Do not demote a task that was just promoted in this same plan run (avoid promote-then-demote churn).
 
-Two tasks are **not eligible** as trim victims:
+Three tasks are **not eligible** as trim victims:
 
-- Anything pinned in-flight (rubric § In-flight pinning) — as before.
+- Anything pinned in-flight by the anti-demotion floor (rubric § In-flight pinning) — as before.
 - A **blocked in-focus** task that Step 1 demoted into `soon/`, which Step 1 marked trim-protected. "Revisit when unblocked" only works if the task stays where it will be looked at.
+- A task whose **first commit is within 7 days** (at most seven 24-hour periods at run time), or that has **no creation commit** yet. A missing commit stays epoch-old for ordinary placement, but trimming treats it as fresh because a newly filed working-tree task has no history either.
 
 If the protections leave a bucket over tolerance, **stop trimming and name the deviation** rather than trimming something protected: "soon/ over tolerance by K — J blocked in-focus tasks are trim-protected there." That is the same shape as the in-flight-pinning deviation the skill already reports, and it is the honest reading — the shape target did not flex, the queue is genuinely carrying more deferred in-focus work than the shape wants, and that is worth seeing.
 
@@ -223,7 +226,7 @@ If the protections leave a bucket over tolerance, **stop trimming and name the d
 
 - **Total task count too small**: e.g. only 4 tasks across now+soon+later. Use proportional targets: 2 in `now/`, 2 in `soon/`, 0 in `later/`. State the deviation explicitly: "Total tasks=4; treating target as now=2/soon=2."
 - **Many tasks in `queued/`**: when `queued/` has ≥3 tasks (the autonomous worker is well-fed), it's fine to leave `now/` slightly under-target (2 instead of 3). Note this deviation explicitly.
-- **No git creation date** (file never committed): the rubric's tiebreaker rule applies — treat the task as oldest.
+- **No creation commit** (file never committed): the rubric's ordinary-placement tiebreaker treats it as oldest, while Step 5 protects it from trimming as fresh.
 - **Area inference fell back to title**: include "(area inferred from title)" in the rationale so the user can correct.
 - **Task already in the right bucket per its category**: no move needed. Don't churn for no-op reassignments.
 - **No `focus.md`**: rank on mechanics alone, and say so in the diagnosis block's `Focus: ABSENT` line and again in the final report. Never let a mechanics-only pass read as a focus-honouring one — that is the failure the rubric's Staleness branch exists to prevent.
@@ -242,9 +245,10 @@ Print the full plan as a table **before** any move:
 
 | # | Task | From | To | Cat | Coupling | Focus | Rationale |
 |---|------|------|----|-----|----------|-------|-----------|
-| 1 | normalize-imported-record-fixtures | later/ | now/ | N | B | "loaded from fixtures" | single production area (data:fixtures); distinct from queued |
-| 2 | replace-hand-rolled-schema-updates-with-migrations | soon/ | later/ | L | B | **Not now** | introduces a migration framework + startup change — infra rewrite |
-| 3 | swap-the-report-renderer | now/ | later/ | — | B | — | status=blocked → soon/ (Step 1), then trimmed on (Step 5): out of focus, and the three in-focus blocked tasks in soon/ are protected |
+| 1 | harden-importer-retry-backoff | soon/ | now/ | — | B | "The importer and the record model it feeds" | in-flight promotion (2/5 criteria done); open `now/` slot |
+| 2 | unify-the-two-model-construction-paths | later/ | now/ | N | B | "how records are constructed" | single production area; fills the remaining N slot |
+| 3 | replace-hand-rolled-schema-updates-with-migrations | soon/ | later/ | L | B | **Not now** | introduces a migration framework + startup change — infra rewrite |
+| 4 | swap-the-report-renderer | now/ | soon/ | — | B | — | status=blocked; revisit when unblocked |
 | ...                                  | ...   | ...  | ... | ... | ... | ... |
 ```
 
@@ -332,9 +336,9 @@ or when it unblocks that path.
 - Readiness overrides: four tasks blocked in `now/`.
 - Queued areas: parser, skills, billing. No candidate shares them — every candidate is Tier B.
 
-**Step 1 — Hard overrides:** all four blocked `now/` tasks demote to `soon/`. Three are in focus → **trim-protected**; `swap-the-report-renderer` is not. Recomputed: now=1, soon=6.
+**Step 1 — Hard overrides:** all four blocked `now/` tasks demote to `soon/`. Three are in focus → **trim-protected**; `swap-the-report-renderer` is not. Recomputed: now=1, soon=6. `harden-importer-retry-backoff` is the only eligible in-flight task outside `now/`, so its 2/5 progress fills one of the two open slots: now=2, soon=5. No complete or blocked task can enter that promotion pool.
 
-**Step 2 — Classify** the tasks Step 1 did not claim. `harden-importer-retry-backoff` is pinned in-flight (2/5 checked) and stays in `soon/`, consuming a slot.
+**Step 2 — Classify** the tasks Step 1 did not claim. The remaining normal candidates are categorized below; any eligible in-flight candidate that did not fit in Step 1 would remain in its current bucket under the anti-demotion floor.
 
 | Task | Scope areas | Category | Rationale |
 |------|------|---|---|
@@ -347,7 +351,7 @@ or when it unblocks that path.
 
 Note `replace-hand-rolled-schema-updates-with-migrations`: the `**Not now:**` line names it, but it was already **L**. Focus **confirmed** its placement rather than causing it — do not credit focus in its Rationale.
 
-**Step 3 — Sub-rank** (focus → coupling tier → tiebreakers; all Tier B, none has progress, so the tiebreakers reduce to age → effort):
+**Step 3 — Sub-rank** (focus → coupling tier → tiebreakers; all Tier B, none has progress, and all have neutral `medium` priority, so the tiebreakers reduce to age → effort → slug):
 
 - **N**: `normalize-imported-record-fixtures`, `unify-the-two-model-construction-paths` — both in focus, so focus does not separate them; age decides (`normalize` is older).
 - **S**: `introduce-record-id-newtype`, `type-session-json-columns` (both in focus) rank above `refactor-simulator-test-architecture` (out of focus). Without focus, `refactor-simulator` would have outranked `type-session-json-columns` on smaller effort.
@@ -355,15 +359,25 @@ Note `replace-hand-rolled-schema-updates-with-migrations`: the `**Not now:**` li
 
 **Step 4 — Place:**
 
-- The N pool holds only 2 → `now/` is under-target by 1, so backfill from S, **preferring in focus**: `introduce-record-id-newtype` is promoted. `now/` ← `normalize-imported-record-fixtures`, `unify-the-two-model-construction-paths`, `introduce-record-id-newtype` → now=3 ✓
-- `replace-hand-rolled-schema-updates-with-migrations` is **L** → `later/`. `soon/` now holds 5: `harden` (pinned), `backfill`, `link-records`, `dedupe` (all three protected), `swap-the-report-renderer`.
-- `soon/` is already over target, so the remaining S candidates fall to `later/`: `type-session-json-columns`, `refactor-simulator-test-architecture`.
+- `normalize-imported-record-fixtures` is already in `now/`, and Step 1's promotion leaves exactly one N slot open. `unify-the-two-model-construction-paths` fills it: `now/` ← `normalize-imported-record-fixtures`, `harden-importer-retry-backoff`, `unify-the-two-model-construction-paths` → now=3 ✓. No S backfill occurs.
+- `replace-hand-rolled-schema-updates-with-migrations` is **L** → `later/`. `soon/` now holds four tasks: `backfill`, `link-records`, `dedupe` (all three protected), and `swap-the-report-renderer`.
+- Because `soon/` already has four tasks — its tolerance ceiling — every S candidate falls to `later/`: `introduce-record-id-newtype`, `type-session-json-columns`, `refactor-simulator-test-architecture`.
 
-**Step 5 — Trim:** `soon/`=5 exceeds the tolerance ceiling of 4 → trim one. `harden` is pinned; `backfill`, `link-records`, and `dedupe` are trim-protected blocked in-focus tasks. The only eligible victim is `swap-the-report-renderer` → `later/`. `soon/`=4, at the ceiling.
+**Step 5 — Trim:** `soon/`=4 is at, not beyond, the tolerance ceiling, so no trim occurs. `swap-the-report-renderer` remains in `soon/`.
 
-**The one move focus actually decided.** Mechanically — out-of-focus-first removed from the ordering — the bottom-ranked task in `soon/` would have been `dedupe-records-across-import-batches` (no progress, largest effort, newest), and it would have gone to `later/` while `swap-the-report-renderer` stayed. Focus protected `dedupe` and sent `swap` instead. Everything else focus touched this run changed the *order* without changing a *placement*, because the shape absorbed those candidates either way — which is the normal case, and why the plan's closing line reports the count of focus-decided moves rather than implying the whole plan was focus-driven.
+**Focus decided no moves in this example.** It still changes the S ordering and records trim protection for the three blocked in-focus tasks, but the count-aware placements leave `soon/` at its ceiling without a trim. The plan's closing line therefore reports zero focus-decided moves rather than attributing the old `swap-the-report-renderer` demotion to focus.
 
-**Final shape:** now=3, soon=4, later=4. Deviation to report: `soon/` sits at the tolerance ceiling because three blocked in-focus tasks are trim-protected there.
+**Final shape:** now=3, soon=4, later=4. `harden-importer-retry-backoff` is in `now/`; `swap-the-report-renderer` remains in `soon/`.
+
+**Edge-case regression checks:**
+
+| Case | Expected plan result |
+|---|---|
+| Blocked task with partial progress | Demote it from `now/` or leave it outside `now/`; never promote it for progress or in-flight status. |
+| All-complete task outside `now/` | Flag it for deletion before category or promotion logic. |
+| More eligible in-flight tasks than open `now/` slots | Promote only the open-slot count, ordered by progress, explicit priority, age, effort, then task slug; leave the rest anti-demotion protected. |
+| Fresh trim candidates | A task whose first commit is within seven days and a task with no creation commit are both trim-protected. |
+| N overflow at the `soon/` ceiling | One surplus N task may fill a fourth `soon/` slot; a further surplus falls to `later/`. |
 
 ---
 

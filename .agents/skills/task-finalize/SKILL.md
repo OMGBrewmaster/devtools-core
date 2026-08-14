@@ -49,7 +49,18 @@ Extract individual **open questions** from the Open questions section as best yo
 - A single block of prose with multiple `?` → split sensibly.
 - HTML comments (`<!-- ... -->`) are guidance, not real questions — skip them.
 
-While parsing, run a quick pass over Phase 8's readiness rules and note which already fail. Structural gaps — a placeholder Goal, no real acceptance criteria, empty stopping conditions — join the interview agenda (assembled in Phase 4a, settled in Phase 5), so they surface before the interview instead of as failures after it.
+While parsing, resolve the bundled checker from this skill's **physical** directory, so a project-level `.agents/skills/task-finalize` or `.claude/skills/task-finalize` symlink never makes it inspect the `devtools/` worktree:
+
+```bash
+skill_dir="$(cd -P "$(dirname "$(readlink -f .agents/skills/task-finalize/SKILL.md)")" && pwd)"
+checker="$skill_dir/check-task-readiness.sh"
+readiness_rc=0
+readiness_output="$(bash "$checker" "$task_file")" || readiness_rc=$?
+printf '%s\n' "$readiness_output"
+printf 'EXIT=%s\n' "$readiness_rc"
+```
+
+Read the checker's numbered `FAIL` and `WARN` records as the structural agenda. Exit 1 is expected at this point: open questions or the not-yet-written `finalized-at:` stamp are normal pre-finalization failures, not a reason to skip the interview. Exit 2 is a usage or repository-context error; stop and fix that before continuing. Structural gaps the checker reports — a placeholder Goal, no real acceptance criteria, empty stopping conditions — join the interview agenda (assembled in Phase 4a, settled in Phase 5), so they surface before the interview instead of as failures after it.
 
 ---
 
@@ -353,18 +364,7 @@ Writing or updating this section makes the run **authored-content** (Phase 9): t
 
 ## Phase 8 — Validate readiness
 
-Check every rule and collect failures — Phase 9's final block reports them; don't print a separate summary here:
-
-| # | Rule | How to check |
-|---|------|--------------|
-| 1 | Goal section non-empty and not a placeholder | `## Goal` block exists, has non-comment content, doesn't include the template placeholder text |
-| 2 | At least one acceptance criterion listed | `## Acceptance criteria` contains ≥1 `- [ ]` or `- [x]` item whose text is not an angle-bracket placeholder (`<…>`, e.g. `<first acceptance criterion>`). Sentinel lines `<!-- AC:BEGIN -->` / `<!-- AC:END -->` inside the section are ignored when scanning for items. |
-| 3 | Stopping conditions non-empty | `## Stopping conditions` exists, has non-comment content |
-| 4 | Status field chosen | The frontmatter `status:` value is one of `not-started` / `in-progress` / `blocked`. Fails if the frontmatter block is missing or the value is the template placeholder (`<not-started \| in-progress \| blocked>`). |
-| 5 | Effort field chosen | The frontmatter `effort:` value is one of `small` / `medium` / `large`. Fails if the value is the template placeholder (`<small \| medium \| large>`). |
-| 6 | Open questions resolved | `## Open questions` is absent or contains only whitespace/comments |
-| 7 | Priority and dependencies well-formed | The frontmatter `priority:` value is one of `high` / `medium` / `low`, and `dependencies:` is a (possibly empty) list of kebab-case task slugs — warn (on Phase 9's ⚠️ line, not a failure) if a listed slug matches no existing task file. |
-| 8 | Context verified at HEAD | The frontmatter `finalized-at:` value is a valid commit SHA in this repo (`git cat-file -e <sha>^{commit}`). Stamped by Phase 6; fails if absent or dangling — a task without it was never verified. |
+Run the same bundled checker from Phase 2 after the brief is complete, and read all of its output plus its exit code. Its eight numbered records are the readiness verdict; do not reproduce or re-judge them in this skill. Exit 0 means every blocking rule passed, exit 1 means the printed `FAIL` records name what remains, and exit 2 is a usage or repository-context error to fix before reporting readiness.
 
 One check warrants an interaction of its own: **no `**In brief**:` paragraph, or it still holds the template comment** — warn, do not fail. In brief serves human triage, not implementation correctness, so a missing one never blocks readiness; tasks predating the field are expected to lack it. Offer to write one (a yes/no capture — use the popup); if the user accepts, authoring it makes this an **authored-content** run (Phase 9).
 
@@ -387,7 +387,7 @@ Then print a final block with:
 - Whether any were deferred (and which).
 - Whether a `## Recommended solution` was written or updated.
 - The solution review's outcome, per pass (4a's refutation and blast radius, Phase 7's cold read): skipped for `small` effort, or what each raised and where it landed — interview question, design wrinkle, brief fix, or discarded. A pass that raised nothing is reported as "ran clean": that is a result, not an omission.
-- Readiness: ✅ rules passed; ❌ rules failed, each with the specific reason; ⚠️ warnings — rule 7's unmatched dependency slugs, and the In-brief outcome (Phase 8).
+- Readiness: the bundled checker's `PASS` / `FAIL` / `WARN` records and exit code, plus the In-brief outcome (Phase 8).
 - The run classification (self-contained vs authored-content).
 
 Pick the commit message from the first row that applies:

@@ -37,7 +37,12 @@ If `## Scope` is missing or empty, derive the primary area from the title (e.g. 
 
 ## In-flight pinning
 
-**Pin in-flight tasks first**: if a task has any checked acceptance criteria (`- [x]`) OR status is `in-progress`, keep it in its current bucket regardless of category — the user is actively working on it and a demotion would be churn. Note these as "pinned (in-flight)" in the plan output. They still consume a slot toward the bucket's target count.
+**In-flight pinning is a floor, not a freeze**: a task with any checked acceptance
+criteria (`- [x]`) or `status: in-progress` is protected from a category- or
+shape-driven **demotion**, not from a readiness-driven promotion. The protection applies
+only while the task is neither blocked nor complete: blocked and complete precedence
+comes first. Note protected tasks as "pinned (in-flight; anti-demotion)" in the plan
+output. They still consume a slot toward the bucket's target count.
 
 (`/task-next` states the same intuition inline as its first ranking rule — resume
 beats start — without reading it from here.)
@@ -70,9 +75,9 @@ These always override ordinary ranking.
 
 | Signal | Action |
 |---|---|
-| Task outside `now/` with >50% acceptance criteria checked | Promote to `now/` regardless of shape |
-| Task in `now/` with status `blocked` | Demote to `soon/` with note "blocked — revisit when unblocked" |
-| Task in `now/` with **all** acceptance criteria checked | Flag for deletion (work appears complete) |
+| All acceptance criteria checked, in any bucket | Flag for deletion (work appears complete) before every other readiness action |
+| Task with status `blocked` | Exclude from every progress- or in-flight-based promotion; when it is in `now/`, demote it to `soon/` with note "blocked — revisit when unblocked" |
+| Every other task outside `now/` with status `in-progress` or any checked acceptance criterion | Eligible for an in-flight promotion to an open `now/` slot; rank eligible tasks by the tiebreakers and promote only enough to reach the target |
 | Task in `now/` with status `not-started` and Created > 14 days ago | Tag as "stale `now/`"; don't auto-demote but call it out for the user |
 
 And **evidence-based signals**, when a `/task-audit` run earlier in this conversation reported reprioritization signals (or dated audit notes are embedded in the documents):
@@ -120,8 +125,12 @@ Within each category, order tasks by **area-coupling tier**. In repos without a 
 
 Within each tier, prefer (in order):
 1. Higher progress fraction (in-flight > not-started — already underway).
-2. Older Created date first (waited longer).
-3. Smaller `effort` first (`small` before `medium` before `large`).
+2. **explicit priority**: `high`, then neutral `medium`, then `low`. `medium` is neutral
+   because it is the template default; `high` and `low` are deliberate signals, but
+   remain weaker than progress.
+3. Older Created date first (waited longer).
+4. Smaller `effort` first (`small` before `medium` before `large`).
+5. Task slug alphabetical as the stable final fallback.
 
 `Created` is derived from the file's first commit — see the definition under
 [Readiness and evidence signals](#readiness-and-evidence-signals); do not look for a
@@ -178,8 +187,8 @@ plausible the association felt.
 **Focus modifies the mechanics; it never overrides them.** Every rule that already
 decides an outcome keeps its full force — [Readiness and evidence
 signals](#readiness-and-evidence-signals) and [In-flight
-pinning](#in-flight-pinning). Focus never overturns the blocked-in-`now/` demotion and
-never unpins in-flight work.
+pinning](#in-flight-pinning). Focus never overturns the blocked-in-`now/` demotion or
+the in-flight anti-demotion floor.
 
 What it does, in each place a ranking is formed:
 
@@ -211,10 +220,11 @@ signal is the sharpest cost this weighting could carry.
 
 A rewritten focus is expected to move a handful of un-started tasks at the next
 rebalance. That is the feature operating, not noise — buckets that track declared intent
-have to move when the intent changes. The existing dampers bound it: in-flight pinning
-holds started work in place, no-op reassignments are suppressed, a task promoted in a run
-is not demoted again in the same run, and the weight-not-override design above keeps
-focus away from anything the mechanics have an opinion about.
+have to move when the intent changes. The existing dampers bound it: the in-flight
+anti-demotion floor keeps started work from being pushed down, no-op reassignments are
+suppressed, a task promoted in a run is not demoted again in the same run, and the
+weight-not-override design above keeps focus away from anything the mechanics have an
+opinion about.
 
 No hysteresis rule, deliberately. A damper for observed flapping can be added when
 flapping is observed; adding one now would be tuning against a problem nobody has

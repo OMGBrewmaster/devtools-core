@@ -54,6 +54,13 @@ if [ "$(git rev-parse --show-toplevel)" != "$(pwd -P)" ]; then
     exit 2
 fi
 
+devtools_root="$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readiness_checker="$devtools_root/.agents/skills/task-finalize/check-task-readiness.sh"
+if [ ! -f "$readiness_checker" ]; then
+    echo "missing bundled task readiness checker: '$readiness_checker'" >&2
+    exit 2
+fi
+
 failures=0
 notes=0
 
@@ -88,79 +95,22 @@ resolve_chain() {
     return 1
 }
 
-# Validate one ordinary task brief. Prints one line per violation; always
-# exits 0 (the caller decides what a violation means).
-#   $1 = brief path, $2 = 1 when a valid finalized-at commit is REQUIRED
-#       (queued/ and queued/blocked/ — queue admission already requires
-#       readiness), 0 in the human buckets.
+# Validate one ordinary task brief through task-finalize's shared parser.
+# It deliberately does not ask for the full handoff verdict: human-bucket
+# drafts may have open questions and no finalized-at stamp.  The command runs
+# under set -e, so capture exit 1 explicitly and let clause 12 aggregate every
+# malformed brief into its stable FAIL record.
+#   $1 = brief path, $2 = human or queued finalized-at policy.
 validate_brief() {
-    local out
-    out=$(awk -v req="$2" -v reqlist="status effort priority dependencies" '
-      BEGIN {
-        n = split(reqlist, reqs, " ")
-        for (i = 1; i <= n; i++) want[reqs[i]] = 1
-      }
-      NR == 1 { if ($0 != "---") { print "file does not open with a --- frontmatter delimiter"; exit }
-                infm = 1; next }
-      infm && /^---[[:space:]]*$/ { infm = 0; next }
-      infm && /^status:/ {
-        seen["status"] = 1
-        v = $0; sub(/^status:[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v)
-        if (v == "done") print "status: done is rejected — completed tasks are deleted, never marked done"
-        else if (v != "not-started" && v != "in-progress" && v != "blocked") print "status: invalid value \"" v "\" (expected not-started | in-progress | blocked)"
-        next
-      }
-      infm && /^effort:/ {
-        seen["effort"] = 1
-        v = $0; sub(/^effort:[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v)
-        if (v != "small" && v != "medium" && v != "large") print "effort: invalid value \"" v "\" (expected small | medium | large)"
-        next
-      }
-      infm && /^priority:/ {
-        seen["priority"] = 1
-        v = $0; sub(/^priority:[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v)
-        if (v != "high" && v != "medium" && v != "low") print "priority: invalid value \"" v "\" (expected high | medium | low)"
-        next
-      }
-      infm && /^dependencies:/ {
-        seen["dependencies"] = 1
-        v = $0; sub(/^dependencies:[[:space:]]*/, "", v)
-        if (v !~ /^\[.*\]$/) print "dependencies: must be a list, got \"" v "\""
-        next
-      }
-      infm && /^finalized-at:/ {
-        seen["finalized-at"] = 1
-        v = $0; sub(/^finalized-at:[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v)
-        if (v !~ /^[0-9a-f]{40}$/) print "finalized-at is not a 40-hex commit SHA: " v
-        next
-      }
-      !infm && /^<!-- AC:BEGIN/ { ac_begin = 1; ac_open = 1; next }
-      !infm && ac_open && /^- \[[ x~]\]/ { ac_items = ac_items + 1; next }
-      !infm && /^<!-- AC:END/ { ac_end = 1; ac_open = 0; next }
-      END {
-        if (infm) print "frontmatter is not closed by a --- line"
-        for (k in want) if (!(k in seen)) print "missing frontmatter field: " k
-        if (req && !seen["finalized-at"]) print "missing finalized-at — queue admission requires a brief to be finalized and ready"
-        if (!ac_begin) print "missing AC:BEGIN sentinel — the task skills parse the acceptance list between the sentinels"
-        else if (!ac_end) print "missing AC:END sentinel"
-        else if (ac_items == 0) print "no checkbox items between the AC sentinels — the acceptance list is empty"
-      }
-    ' "$1")
-
-    # In the queue, a finalized-at must name a commit that exists in this repo.
-    if [ "$2" = "1" ]; then
-        local sha
-        sha=$(awk '
-          NR == 1 { if ($0 != "---") exit; infm = 1; next }
-          infm && /^---[[:space:]]*$/ { exit }
-          infm && /^finalized-at:/ { v = $0; sub(/^finalized-at:[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v); print v; exit }
-        ' "$1")
-        if [ -n "$sha" ] && ! git cat-file -e "$sha^{commit}" 2>/dev/null; then
-            out="${out}finalized-at $sha does not name a commit in this repo; "
-        fi
+    local out rc=0
+    out=$(bash "$readiness_checker" --conformance "$1" "$2") || rc=$?
+    if [ "$rc" -eq 2 ]; then
+        printf 'readiness checker could not inspect this brief: %s\n' "$out"
+    elif [ -n "$out" ]; then
+        printf '%s\n' "$out"
+    elif [ "$rc" -ne 0 ]; then
+        printf 'readiness checker failed with exit %s without a format verdict\n' "$rc"
     fi
-
-    [ -n "$out" ] && printf '%s\n' "$out"
     return 0
 }
 
@@ -444,14 +394,14 @@ else
     while IFS= read -r bucket; do
         [ -n "$bucket" ] || continue
         [ -d "docs/work/tasks/$bucket" ] || continue
-        require_fin=0
+        policy="human"
         case "$bucket" in
-            queued | queued/blocked) require_fin=1 ;;
+            queued | queued/blocked) policy="queued" ;;
         esac
         while IFS= read -r f; do
             [ -n "$f" ] || continue
             checked=$((checked + 1))
-            v=$(validate_brief "$f" "$require_fin")
+            v=$(validate_brief "$f" "$policy")
             if [ -n "$v" ]; then
                 brief_problems="${brief_problems}${f}: $(printf '%s' "$v" | tr '\n' '; ')"
             fi

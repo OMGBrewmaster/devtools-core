@@ -1,6 +1,6 @@
 ---
 name: task-status
-description: Read-only status report on this repo's tasks — one task in depth when given a task file, otherwise a brief sweep of the whole queue. Reports what code, docs, and git history actually say; never edits anything.
+description: Read-only status report on this repo's tasks — one task in depth when given a task file, otherwise a brief sweep of the whole queue. Detects finished-but-not-closed work, premature or stale in-progress markers, bucket/status contradictions, rotted briefs, and runner execution state in queue repos. Reports what code, docs, and git history actually say; never edits anything.
 ---
 
 # Task status

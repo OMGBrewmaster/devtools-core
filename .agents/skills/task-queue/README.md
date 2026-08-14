@@ -41,6 +41,27 @@ tail -f .task-queue/runner-<ts>.out
 Pass `--foreground` to opt out — the runner then runs in the launching
 terminal with live stdout, for debugging the runner itself.
 
+## Root guard
+
+The runner deliberately walks three levels from the path you typed without
+resolving skill-directory symlinks. That makes the normal logical spellings
+(`.agents/skills/task-queue` and `.claude/skills/task-queue`) select the
+mounting project's queue rather than devtools' own tree. It accepts a plain
+clone or linked worktree only when that resolved path is the Git worktree root
+and has no superproject; a physical path inside a devtools submodule is
+rejected before it can create queue state there.
+
+Use a logical skill path from the project root, for example:
+
+```bash
+bash .agents/skills/task-queue/run.sh
+bash .claude/skills/task-queue/run.sh
+```
+
+If the guard rejects a nested path or submodule, its error names the resolved
+root and prints the corresponding invocation from the enclosing or mounting
+repository. A non-Git path reports that no repository root could be found.
+
 Drop task files into `<tasks>/queued/` and **commit them** —
 the runner watches main's HEAD, not the working tree, so an
 uncommitted file is invisible. Use `/task-move <task> queued` (which validates

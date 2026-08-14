@@ -32,23 +32,25 @@ If the task is already in the target bucket, print "Task is already in `{bucket}
 
 If the target bucket is **anything other than `queued`**, skip this phase.
 
-Tasks in `queued/` are picked up by the autonomous task-queue runner with no further triage. Refuse moves into `queued/` unless every rule below passes against the current task file:
+Tasks in `queued/` are picked up by the autonomous task-queue runner with no further triage. Refuse moves into `queued/` unless the shared readiness checker passes against the current task file:
 
-| # | Rule | How to check |
-|---|------|--------------|
-| 1 | Goal section non-empty and not a placeholder | `## Goal` block exists, has non-comment content, doesn't include the template placeholder text |
-| 2 | At least one acceptance criterion listed | `## Acceptance criteria` contains ≥1 `- [ ]` or `- [x]` item whose text is not an angle-bracket placeholder (`<…>`, e.g. `<first acceptance criterion>`). Sentinel lines `<!-- AC:BEGIN -->` / `<!-- AC:END -->` inside the section are ignored when scanning for items. |
-| 3 | Stopping conditions non-empty | `## Stopping conditions` exists, has non-comment content |
-| 4 | Status field chosen | The frontmatter `status:` value is one of `not-started` / `in-progress` / `blocked`. Fails if the frontmatter block is missing or the value is the template placeholder (`<not-started \| in-progress \| blocked>`). |
-| 5 | Effort field chosen | The frontmatter `effort:` value is one of `small` / `medium` / `large`. Fails if the value is the template placeholder (`<small \| medium \| large>`). |
-| 6 | Open questions resolved | `## Open questions` is absent or contains only whitespace/comments |
-| 7 | Priority and dependencies well-formed | The frontmatter `priority:` value is one of `high` / `medium` / `low`, and `dependencies:` is a (possibly empty) list of kebab-case task slugs — warn if a listed slug matches no existing task file or queue history. |
-| 8 | Context verified at HEAD | The frontmatter `finalized-at:` value is a valid commit SHA in this repo (`git cat-file -e <sha>^{commit}`). Only the `task-finalize` skill's verify-against-HEAD phase stamps it — so a task failing this rule needs `task-finalize`, not a hand-added SHA. |
+Resolve `check-task-readiness.sh` from the `task-finalize` skill's physical directory, then run it on the current task file and read every `PASS` / `FAIL` / `WARN` line plus the exit code:
 
-If any rule fails:
+```bash
+skill_dir="$(cd -P "$(dirname "$(readlink -f .agents/skills/task-finalize/SKILL.md)")" && pwd)"
+checker="$skill_dir/check-task-readiness.sh"
+readiness_rc=0
+readiness_output="$(bash "$checker" "$task_file")" || readiness_rc=$?
+printf '%s\n' "$readiness_output"
+printf 'EXIT=%s\n' "$readiness_rc"
+```
+
+Exit 0 is admission-ready. Exit 1 means the numbered `FAIL` records are the reasons to refuse; `WARN` records alone do not block the move. Exit 2 means the checker could not derive the task file's repository context, so stop and fix that before considering the move.
+
+If the checker exits 1:
 
 1. Print the specific failures.
-2. Print: "Refusing to move into `queued/`. Run `task-finalize {task-name}` to resolve the issues interactively (it walks open questions one at a time in conversation, stamps `finalized-at:`, and validates these same rules), then re-run this move."
+2. Print: "Refusing to move into `queued/`. Run `task-finalize {task-name}` to resolve the issues interactively (it walks open questions one at a time in conversation, stamps `finalized-at:`, and runs this same checker), then re-run this move."
 3. Stop without moving.
 
 If all rules pass, proceed.

@@ -37,6 +37,33 @@ follow from that:
 - **Keep the markers on their own lines, and keep block bodies free of
   `include` directives** — the expansion does not recurse.
 
+### Verify the rendered prompt
+
+Render both the committed baseline and the working tree; reading either source
+file alone does not prove what the worker receives. From the repo root:
+
+```bash
+baseline_dir=$(mktemp -d)
+git archive HEAD \
+  .agents/skills/task-queue/initial-prompt.md \
+  .agents/skills/task-queue/execution-discipline.md |
+  tar -x -C "$baseline_dir"
+
+render_prompt() {
+  bash -c '
+    source .agents/skills/task-queue/run.sh
+    SKILL_DIR="$1"
+    PROMPT_FILE="$SKILL_DIR/initial-prompt.md"
+    render_worker_prompt
+  ' .agents/skills/task-queue/render-check "$1"
+}
+
+render_prompt "$baseline_dir/.agents/skills/task-queue" > /tmp/before.md
+render_prompt "$PWD/.agents/skills/task-queue" > /tmp/after.md
+diff /tmp/before.md /tmp/after.md    # empty = the worker reads the same prompt
+find "$baseline_dir" -depth -delete
+```
+
 ## Whose voice this is
 
 The wording addresses the **worker**: a session running unattended in a

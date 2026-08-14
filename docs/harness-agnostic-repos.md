@@ -124,6 +124,26 @@ a directory containing `SKILL.md` (YAML frontmatter + Markdown), plus optional
 .claude/skills/<name> -> ../../.agents/skills/<name>   # per-skill symlink, tracked in git
 ```
 
+### Shared reference files inside skills
+
+A skill may own a canonical file that another skill or repo reads directly when
+those callers must stay identical rather than merely similar:
+
+| File | Written by | Also read by |
+|------|------------|--------------|
+| `task-create/_TEMPLATE.md` | `task-create` | every repo's `docs/work/tasks/_TEMPLATE.md` symlink (legacy `docs/tasks/_TEMPLATE.md`) |
+| `task-queue/execution-discipline.md` | the task-queue worker | `task-implement` |
+| `task-finalize/check-task-readiness.sh` | `task-finalize` | `task-move` and `Tools/check-docs-work-conformance.sh` |
+
+The task template established this pattern after copied templates diverged into
+seven variants. The execution discipline is live runner configuration: the
+worker expands its marked blocks into one prompt, while `task-implement` reads
+the same file in-session. The readiness checker similarly keeps task movement
+and repository conformance on one executable rule. `task-reprioritize/ranking-rubric.md`
+formerly had a second reader in `task-next`; that edge was removed in 2026-08-11,
+so the two skills may now diverge and stay aligned through bucket placement
+instead.
+
 ### Rules
 
 - **The real directory lives in `.agents/skills/`.** Always. A skill authored under
@@ -136,6 +156,11 @@ a directory containing `SKILL.md` (YAML frontmatter + Markdown), plus optional
 - **Symlinks are tracked in git and use relative targets**, so they survive a clone.
 - **Shared skills vendored from `devtools/` follow the same rule** — the real directory
   belongs in `devtools/.agents/skills/`, and each consumer links to it.
+- **Regenerate shared links with `Tools/sync-skill-symlinks.sh`.** It converts the
+  legacy directory link, creates or refreshes both per-skill surfaces, preserves
+  project-specific skill directories, removes stale links, and reports name
+  collisions (the project-local skill wins). Re-run it after adding or renaming
+  a shared skill and bumping the devtools pointer.
 - **Write the body harness-neutral:**
   - No slash-command syntax in `description` or body — invocation differs per harness
     (`/name` in Claude Code, `$name` in Codex). Say "when the user invokes the *name*

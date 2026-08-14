@@ -53,12 +53,38 @@
 set -u
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PHYSICAL_SKILL_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+MOUNT_ROOT="$(cd "$SKILL_DIR/../../.." && pwd)"
+
+# Prefer a sibling in the physical devtools tree, then a repo-local sibling
+# exposed beside the mounting repo's logical skill surface. This preserves
+# native and vendored whole-tree layouts while supporting PIA Maker's audit
+# runner. See docs/skill-path-resolution.md.
+resolve_runner() {  # <task-queue|audit-queue> -> path, or exits non-zero
+  local name="$1" candidate
+  case "$name" in
+    task-queue) candidate="$SKILL_DIR/run.sh" ;;
+    audit-queue)
+      candidate="$PHYSICAL_SKILL_DIR/../audit-queue/run.sh"
+      [[ -f "$candidate" ]] || candidate="$MOUNT_ROOT/.agents/skills/audit-queue/run.sh"
+      ;;
+    *) return 1 ;;
+  esac
+  [[ -f "$candidate" ]] || return 1
+  printf '%s\n' "$candidate"
+}
 
 # ---- resolve the runner under test -----------------------------------
 RUNNER_ARG="${1:-task-queue}"
 case "$RUNNER_ARG" in
   */*)                    RUNNER_SH="$RUNNER_ARG"; RUNNER_NAME="$RUNNER_ARG" ;;
-  task-queue|audit-queue) RUNNER_SH="$SKILL_DIR/../$RUNNER_ARG/run.sh"; RUNNER_NAME="$RUNNER_ARG" ;;
+  task-queue|audit-queue)
+    if ! RUNNER_SH="$(resolve_runner "$RUNNER_ARG")"; then
+      echo "probe: no such runner script: $RUNNER_ARG" >&2
+      exit 2
+    fi
+    RUNNER_NAME="$RUNNER_ARG"
+    ;;
   *)
     echo "probe: unknown runner '$RUNNER_ARG' (expected task-queue, audit-queue, or a path to a run.sh)" >&2
     exit 2
@@ -67,6 +93,15 @@ esac
 if [[ ! -f "$RUNNER_SH" ]]; then
   echo "probe: no such runner script: $RUNNER_SH" >&2
   exit 2
+fi
+
+# Resolver coverage can exercise every supported spelling without creating a
+# real Claude session. This is deliberately an environment-only test seam,
+# not an operator mode; normal invocations continue directly to the live
+# prerequisites below.
+if [[ "${TASK_QUEUE_PROBE_RESOLVE_ONLY:-0}" == "1" ]]; then
+  echo "probe: resolved runner: $RUNNER_SH"
+  exit 0
 fi
 
 for tool in claude jq; do

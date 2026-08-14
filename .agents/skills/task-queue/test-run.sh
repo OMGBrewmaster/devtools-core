@@ -59,6 +59,7 @@
 set -u
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PHYSICAL_SKILL_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 # ---- syntax gate -----------------------------------------------------
 if ! bash -n "$SKILL_DIR/run.sh"; then
@@ -72,6 +73,26 @@ source "$SKILL_DIR/run.sh"
 trap - INT TERM HUP   # the runner registers its trap only in the
                       # executed (non-sourced) section, so nothing is
                       # actually set here — this is belt-and-suspenders.
+MOUNT_ROOT="$ROOT"
+
+# A sibling runner normally lives beside task-queue in the physical devtools
+# tree. A consuming repo may instead expose a repo-local sibling beside its
+# logical skill surface (PIA Maker's audit-queue is that shape), so use the
+# physical tree first and then the mounting repo. See docs/skill-path-resolution.md.
+resolve_runner() {  # <task-queue|audit-queue> -> path, or exits non-zero
+  local name="$1" candidate
+  case "$name" in
+    task-queue) candidate="$SKILL_DIR/run.sh" ;;
+    audit-queue)
+      candidate="$PHYSICAL_SKILL_DIR/../audit-queue/run.sh"
+      [[ -f "$candidate" ]] || candidate="$MOUNT_ROOT/.agents/skills/audit-queue/run.sh"
+      ;;
+    *) return 1 ;;
+  esac
+  [[ -f "$candidate" ]] || return 1
+  printf '%s\n' "$candidate"
+}
+repo_local_repair_path() { printf '%s/scripts/repair_doc_links.py\n' "$1"; }
 
 # ---- scaffolding -----------------------------------------------------
 TESTROOT="$(mktemp -d)"
@@ -124,6 +145,232 @@ lock_state() { flock -n "$1" -c true 2>/dev/null && echo free || echo held; }
 
 # Release the per-task lock claim_next_task leaves held on fd 9.
 release_fd9() { flock -u 9 2>/dev/null; exec 9>&- 2>/dev/null || true; }
+
+# ---- repo-root guard: real Git root shapes ----------------------------
+echo
+echo "repo-root guard — real clones, worktrees, and submodules"
+
+# The guard must classify actual Git layouts rather than infer them from the
+# shape of .git: linked worktrees and submodules both use a .git *file*.
+# Keep this fixture independent of the checkout running the suite so a real
+# submodule can be mounted without touching the developer's repository.
+GUARD_TOOLING="$TESTROOT/guard-tooling"
+GUARD_MOUNT="$TESTROOT/guard-mount"
+GUARD_PLAIN="$TESTROOT/guard-plain"
+GUARD_WORKTREE="$TESTROOT/guard-worktree"
+GUARD_NESTED="$GUARD_PLAIN/nested"
+GUARD_NONGIT="$TESTROOT/guard-non-git"
+mkdir -p "$GUARD_TOOLING/.agents/skills/task-queue" "$GUARD_MOUNT"
+cp -a "$SKILL_DIR/." "$GUARD_TOOLING/.agents/skills/task-queue/"
+git -C "$GUARD_TOOLING" init -q -b main
+git -C "$GUARD_TOOLING" add -A && git -C "$GUARD_TOOLING" commit -qm "seed runner"
+
+git -C "$GUARD_MOUNT" init -q -b main
+mkdir -p "$GUARD_MOUNT/.agents/skills" "$GUARD_MOUNT/.claude/skills" \
+         "$GUARD_MOUNT/docs/work/tasks"
+git -C "$GUARD_MOUNT" -c protocol.file.allow=always submodule add -q "$GUARD_TOOLING" devtools-core
+ln -s ../../devtools-core/.agents/skills/task-queue "$GUARD_MOUNT/.agents/skills/task-queue"
+ln -s ../../.agents/skills/task-queue "$GUARD_MOUNT/.claude/skills/task-queue"
+
+git clone -q "$GUARD_TOOLING" "$GUARD_PLAIN"
+git -C "$GUARD_PLAIN" worktree add --detach -q "$GUARD_WORKTREE" HEAD
+mkdir -p "$GUARD_NESTED/.agents/skills/task-queue" \
+         "$GUARD_NONGIT/.agents/skills/task-queue"
+cp "$SKILL_DIR/run.sh" "$GUARD_NESTED/.agents/skills/task-queue/run.sh"
+cp "$SKILL_DIR/run.sh" "$GUARD_NONGIT/.agents/skills/task-queue/run.sh"
+
+git_shape() {  # <directory> -> toplevel/superproject status, separately
+  local dir="$1" top super top_status super_status
+  if top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)"; then
+    top_status=ok
+  else
+    top_status=failed
+  fi
+  if super="$(git -C "$dir" rev-parse --show-superproject-working-tree 2>/dev/null)"; then
+    [[ -n "$super" ]] && super_status=nonempty || super_status=empty
+  else
+    super_status=failed
+  fi
+  printf 'top=%s super=%s\n' "$top_status" "$super_status"
+}
+
+check "plain clone has successful empty-superproject Git queries" \
+  "top=ok super=empty" "$(git_shape "$GUARD_PLAIN")"
+check "linked worktree has successful empty-superproject Git queries" \
+  "top=ok super=empty" "$(git_shape "$GUARD_WORKTREE")"
+check "submodule has successful nonempty-superproject Git query" \
+  "top=ok super=nonempty" "$(git_shape "$GUARD_MOUNT/devtools-core")"
+check "nested directory has successful enclosing-toplevel Git query" \
+  "top=ok super=empty" "$(git_shape "$GUARD_NESTED")"
+check "non-Git directory observes Git command failure separately" \
+  "top=failed super=failed" "$(git_shape "$GUARD_NONGIT")"
+
+runner_status() {  # <runner path> <log path> -> exit status
+  if bash "$1" --help >"$2" 2>&1; then echo 0; else echo "$?"; fi
+}
+banner_verdict() {  # <runner path> <expected queue dir> <log path> [cwd] -> correct|wrong
+  local runner="$1" expected_queue="$2" log="$3" cwd="${4:-}" status
+  if [[ -n "$cwd" ]]; then
+    if (cd "$cwd" && timeout -k 1 2 bash "$runner" --foreground) >"$log" 2>&1; then
+      status=0
+    else
+      status=$?
+    fi
+  elif timeout -k 1 2 bash "$runner" --foreground >"$log" 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
+  if [[ "$status" -ne 0 ]] \
+     && [[ "$(sed -n '1p' "$log")" == "[task-queue] watching $expected_queue" ]]; then
+    echo correct
+  else
+    echo wrong
+  fi
+}
+
+check "plain clone is accepted by the root guard" "0" \
+  "$(runner_status "$GUARD_PLAIN/.agents/skills/task-queue/run.sh" "$TESTROOT/plain.log")"
+check "linked worktree is accepted by the root guard" "0" \
+  "$(runner_status "$GUARD_WORKTREE/.agents/skills/task-queue/run.sh" "$TESTROOT/worktree.log")"
+check "nested directory is rejected by the root guard" "rejected" \
+  "$( [[ "$(runner_status "$GUARD_NESTED/.agents/skills/task-queue/run.sh" "$TESTROOT/nested.log")" != 0 ]] && echo rejected || echo accepted )"
+check "non-Git directory is rejected by the root guard" "rejected" \
+  "$( [[ "$(runner_status "$GUARD_NONGIT/.agents/skills/task-queue/run.sh" "$TESTROOT/non-git.log")" != 0 ]] && echo rejected || echo accepted )"
+check "physical submodule runner is rejected before it can create queue state" "rejected" \
+  "$( [[ "$(runner_status "$GUARD_MOUNT/devtools-core/.agents/skills/task-queue/run.sh" "$TESTROOT/submodule.log")" != 0 ]] && echo rejected || echo accepted )"
+check "submodule rejection leaves every task-root and state candidate absent" "absent" \
+  "$( for p in .task-queue docs/work/tasks/queued docs/tasks/queued docs/planning/tasks/queued; do [[ -e "$GUARD_MOUNT/devtools-core/$p" ]] && exit 1; done; echo absent )"
+check "nested-root error names its root and enclosing toplevel invocation" "descriptive" \
+  "$( grep -Fq "resolved repo root '$GUARD_NESTED'" "$TESTROOT/nested.log" \
+       && grep -Fq "enclosing toplevel '$GUARD_PLAIN'" "$TESTROOT/nested.log" \
+       && grep -Fq "bash $GUARD_PLAIN/.agents/skills/task-queue/run.sh" "$TESTROOT/nested.log" \
+       && echo descriptive || echo vague )"
+check "submodule-root error names its root and mounting-repo invocation" "descriptive" \
+  "$( grep -Fq "resolved repo root '$GUARD_MOUNT/devtools-core'" "$TESTROOT/submodule.log" \
+       && grep -Fq "submodule of '$GUARD_MOUNT'" "$TESTROOT/submodule.log" \
+       && grep -Fq "bash $GUARD_MOUNT/.agents/skills/task-queue/run.sh" "$TESTROOT/submodule.log" \
+       && echo descriptive || echo vague )"
+check "non-Git-root error says no repository root could be discovered" "descriptive" \
+  "$( grep -Fq "resolved repo root '$GUARD_NONGIT'" "$TESTROOT/non-git.log" \
+       && grep -Fq "no repository root could be discovered" "$TESTROOT/non-git.log" \
+       && echo descriptive || echo vague )"
+
+check "logical .agents spelling watches the mounting repo queue" "correct" \
+  "$(banner_verdict "$GUARD_MOUNT/.agents/skills/task-queue/run.sh" "$GUARD_MOUNT/docs/work/tasks/queued" "$TESTROOT/agents-banner.log")"
+check "logical .claude spelling watches the mounting repo queue" "correct" \
+  "$(banner_verdict "$GUARD_MOUNT/.claude/skills/task-queue/run.sh" "$GUARD_MOUNT/docs/work/tasks/queued" "$TESTROOT/claude-banner.log")"
+check "absolute logical spelling watches the mounting repo queue" "correct" \
+  "$(banner_verdict "$(realpath -s "$GUARD_MOUNT/.agents/skills/task-queue/run.sh")" "$GUARD_MOUNT/docs/work/tasks/queued" "$TESTROOT/absolute-banner.log")"
+check "native devtools-style checkout watches its own queue" "correct" \
+  "$(banner_verdict "$GUARD_PLAIN/.agents/skills/task-queue/run.sh" "$GUARD_PLAIN/docs/planning/tasks/queued" "$TESTROOT/native-banner.log")"
+check "linked worktree launch from inside the worktree watches its own queue" "correct" \
+  "$(banner_verdict ".agents/skills/task-queue/run.sh" "$GUARD_WORKTREE/docs/planning/tasks/queued" "$TESTROOT/worktree-banner.log" "$GUARD_WORKTREE")"
+
+# The resolver's mounting-repo fallback is not theoretical: PIA Maker keeps
+# audit-queue and repair_doc_links.py at its own root, beside a symlinked
+# task-queue. Build that shape and prove both probes select all public forms
+# without starting a live Claude session.
+PIA_AUDIT="$GUARD_MOUNT/.agents/skills/audit-queue"
+mkdir -p "$PIA_AUDIT" "$GUARD_MOUNT/scripts"
+awk '
+  /^# When this file is sourced/ { print "pick_next_audit_path() { :; }" }
+  { print }
+' "$SKILL_DIR/run.sh" > "$PIA_AUDIT/run.sh"
+printf '%s\n' \
+  '#!/usr/bin/env python3' \
+  'import os, pathlib, sys' \
+  'old, new = sys.argv[1:]' \
+  'for path in pathlib.Path(".").rglob("*.md"):' \
+  '    text = path.read_text()' \
+  '    old_from_here = os.path.relpath(old, path.parent)' \
+  '    new_from_here = os.path.relpath(new, path.parent)' \
+  '    updated = text.replace(old_from_here, new_from_here)' \
+  '    if updated != text:' \
+  '        path.write_text(updated)' \
+  '        print(path)' \
+  > "$GUARD_MOUNT/scripts/repair_doc_links.py"
+cp "$GUARD_MOUNT/scripts/repair_doc_links.py" "$GUARD_MOUNT/scripts/check_doc_links.py"
+SAVED_MOUNT_ROOT="$MOUNT_ROOT"
+SAVED_PHYSICAL_SKILL_DIR="$PHYSICAL_SKILL_DIR"
+MOUNT_ROOT="$GUARD_MOUNT"
+PHYSICAL_SKILL_DIR="$GUARD_TOOLING/.agents/skills/task-queue"
+
+probe_resolution() {  # <probe filename> <expected runner> [runner argument]
+  local probe="$1" expected="$2" actual
+  shift 2
+  if actual="$(TASK_QUEUE_PROBE_RESOLVE_ONLY=1 \
+      bash "$GUARD_MOUNT/.agents/skills/task-queue/$probe" "$@")"; then
+    :
+  else
+    actual=failed
+  fi
+  check "$probe resolves ${1:-task-queue default} without launching a live session" \
+    "probe: resolved runner: $expected" "$actual"
+}
+for probe in probe-completion-detection.sh probe-persistent-inflight.sh; do
+  probe_resolution "$probe" "$GUARD_MOUNT/.agents/skills/task-queue/run.sh"
+  probe_resolution "$probe" "$GUARD_MOUNT/.agents/skills/task-queue/run.sh" task-queue
+  probe_resolution "$probe" "$PIA_AUDIT/run.sh" audit-queue
+  probe_resolution "$probe" "$PIA_AUDIT/run.sh" "$PIA_AUDIT/run.sh"
+done
+
+check "logical test-run resolves its repo-local repair helper from the mounting root" \
+  "$GUARD_MOUNT/scripts/repair_doc_links.py" \
+  "$(repo_local_repair_path "$GUARD_MOUNT")"
+check "logical test-run resolves audit-queue from the mounting repo after the physical-tree miss" \
+  "$PIA_AUDIT/run.sh" "$(resolve_runner audit-queue)"
+
+pia_source_verdict() {  # <hostile-$1> -> returned:function
+  bash -c '
+    set -euo pipefail
+    runner="$1"; shift
+    # shellcheck source=/dev/null
+    source "$runner"
+    printf "returned:%s\\n" "$(type -t pick_next_audit_path)"
+  ' "$GUARD_MOUNT/.agents/skills/task-queue/test-run.sh" "$PIA_AUDIT/run.sh" "$1" 2>/dev/null
+}
+for hostile in code-quality stop recover audit-queue; do
+  check "repo-local audit-queue source guard is inert for $hostile" \
+    "returned:function" "$(pia_source_verdict "$hostile")"
+done
+
+PIA_MIRROR=identical
+for fn in worker_bg_task_count note_inflight_unavailable worker_bg_work_armed \
+          worker_quiet_seconds bg_episode_track bg_episode_reset \
+          bg_episode_close check_stall_signature worker_awaiting_user \
+          worker_in_clarification_dialog worktree_busy; do
+  [[ "$(sed -n "/^$fn() {/,/^}/p" "$SKILL_DIR/run.sh")" \
+     == "$(sed -n "/^$fn() {/,/^}/p" "$PIA_AUDIT/run.sh")" ]] || PIA_MIRROR=diverged
+done
+check "logical test-run's mirror-identity group sees the repo-local audit runner" \
+  "identical" "$PIA_MIRROR"
+
+# This is intentionally a full nested run, not another set of hand-picked
+# resolver assertions: the consumer layout must exercise test-run's real
+# repair, mirror-identity, and source-guard groups.  The environment flag
+# prevents that nested suite from launching another copy of itself.
+if [[ "${TASK_QUEUE_PIA_LOGICAL_SUITE:-0}" != "1" ]]; then
+  PIA_SUITE_LOG="$TESTROOT/pia-logical-test-run.log"
+  if TASK_QUEUE_PIA_LOGICAL_SUITE=1 \
+      bash "$GUARD_MOUNT/.agents/skills/task-queue/test-run.sh" >"$PIA_SUITE_LOG" 2>&1; then
+    PIA_SUITE_STATUS=passed
+  else
+    PIA_SUITE_STATUS=failed
+  fi
+  check "logical PIA-like test-run completes with repo-local capabilities" \
+    "passed" "$PIA_SUITE_STATUS"
+  check "logical PIA-like test-run exercises inbound-link repair" "exercised" \
+    "$(grep -Fq 'PASS  a plain marker commit lands despite an inbound link' "$PIA_SUITE_LOG" && echo exercised || echo skipped)"
+  check "logical PIA-like test-run exercises mirror identity" "exercised" \
+    "$(grep -Fq 'PASS  worker_bg_task_count is identical in both runners' "$PIA_SUITE_LOG" && echo exercised || echo skipped)"
+  check "logical PIA-like test-run exercises audit source guards" "exercised" \
+    "$(grep -Fq 'PASS  audit-queue sourced with $1=code-quality: returns, defines helpers, changes nothing' "$PIA_SUITE_LOG" && echo exercised || echo skipped)"
+else
+  echo "  NOTE  logical PIA-like test-run cross-layout recursion suppressed"
+fi
+MOUNT_ROOT="$SAVED_MOUNT_ROOT"
+PHYSICAL_SKILL_DIR="$SAVED_PHYSICAL_SKILL_DIR"
 
 # ---- frontmatter parsing: task_priority_rank / task_dependencies -----
 echo "task_priority_rank / task_dependencies — frontmatter parsing"
@@ -885,7 +1132,7 @@ echo "mark_queue_file — marker commits repair inbound links (scratch git repos
 # process, so every call runs in a subshell; a nonzero subshell exit
 # plus a STUCK record in STATE_DIR is the halt signal.
 
-REPAIR_SRC="$(git -C "$SKILL_DIR" rev-parse --show-toplevel)/scripts/repair_doc_links.py"
+REPAIR_SRC="$(repo_local_repair_path "$MOUNT_ROOT")"
 
 mk_mark_repo() {  # <dir> <with-repair: yes|no>
   local r="$1" rel
@@ -982,8 +1229,7 @@ echo "mirror identity — shared helpers are byte-identical in both runners"
 # mode this converts from a "keep these in sync" comment into a check: the
 # 2026-07-31 stall race existed identically in both, and a fix applied to
 # one only would leave the other exposed with no signal.
-AUDIT_RUN_SH="$SKILL_DIR/../audit-queue/run.sh"
-if [[ ! -f "$AUDIT_RUN_SH" ]]; then
+if ! AUDIT_RUN_SH="$(resolve_runner audit-queue)"; then
   skip "shared helpers are identical in both runners (11 functions)" \
        "no audit-queue sibling in this repo — nothing to mirror against"
 else
@@ -1082,7 +1328,7 @@ source_probe() {  # <runner.sh> <helper-fn> <hostile-$1>  -> "returned:<type>" o
 # `SELF` through `$0`, so it re-execs under the *caller's* path — the reverted
 # run above detached as `bash …/task-queue/run.sh`, which a pgrep for the
 # audit-queue path never matches.
-SG_ROOT="$(git -C "$SKILL_DIR" rev-parse --show-toplevel)"
+SG_ROOT="$MOUNT_ROOT"
 sg_stamp()  { stat -c '%i:%Y' "$1" 2>/dev/null || echo absent; }
 sg_logs()   { local n; n=$(ls -1 "$1"/runner-*.out 2>/dev/null | wc -l); echo "$n"; }
 
@@ -1107,8 +1353,7 @@ for spec in \
   "audit-queue:pick_next_audit_path:$SG_ROOT/.audit-queue" \
   "task-queue:claim_next_task:$SG_ROOT/.task-queue"; do
   IFS=: read -r SG_NAME SG_FN SG_STATE <<< "$spec"
-  SG_SH="$SKILL_DIR/../$SG_NAME/run.sh"
-  if [[ ! -f "$SG_SH" ]]; then
+  if ! SG_SH="$(resolve_runner "$SG_NAME")"; then
     skip "$SG_NAME source guard (3 hostile \$1 values)" \
          "no $SG_NAME sibling in this repo"
     continue
@@ -1126,10 +1371,10 @@ done
 # The shape the probes actually use, and the one that never worked before the
 # guard: `probe-completion-detection.sh audit-queue` sources the runner with
 # `audit-queue` — not a valid audit type — sitting in $1.
-if [[ -f "$SKILL_DIR/../audit-queue/run.sh" ]]; then
+if AUDIT_RUN_SH="$(resolve_runner audit-queue)"; then
   check "audit-queue sourced with the probes' own \$1 returns instead of rejecting it" \
     "load=returned:function sentinel=untouched runner=none" \
-    "$(sg_verdict "$SKILL_DIR/../audit-queue/run.sh" pick_next_audit_path \
+    "$(sg_verdict "$AUDIT_RUN_SH" pick_next_audit_path \
          "$SG_ROOT/.audit-queue" audit-queue)"
 else
   skip "audit-queue sourced with the probes' own \$1 returns instead of rejecting it" \
