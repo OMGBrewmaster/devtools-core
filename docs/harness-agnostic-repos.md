@@ -131,7 +131,7 @@ those callers must stay identical rather than merely similar:
 
 | File | Written by | Also read by |
 |------|------------|--------------|
-| `task-create/_TEMPLATE.md` | `task-create` | every repo's `docs/work/tasks/_TEMPLATE.md` symlink (legacy `docs/tasks/_TEMPLATE.md`) |
+| `task-create/_TEMPLATE.md` | `task-create` | every repo's `docs/work/tasks/_TEMPLATE.md` symlink |
 | `task-queue/execution-discipline.md` | the task-queue worker | `task-implement` |
 | `task-finalize/check-task-readiness.sh` | `task-finalize` | `task-move` and `Tools/check-docs-work-conformance.sh` |
 

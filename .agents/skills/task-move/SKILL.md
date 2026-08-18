@@ -11,7 +11,7 @@ Move a task file between priority buckets in this repo's tasks directory.
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/work/tasks/` if it exists, else the legacy `docs/tasks/`, else `docs/planning/tasks/` — written as `<tasks>/` below. If none exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
+- **Tasks root**: `docs/work/tasks/` — written as `<tasks>/` below. If none exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` exists only in repos running the autonomous task-queue runner. Where it is absent, `queued` is not a valid bucket and Phase 3 never applies.
 
 ## Phase 1 — Find the Task

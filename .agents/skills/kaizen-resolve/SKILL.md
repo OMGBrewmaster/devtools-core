@@ -1,18 +1,18 @@
 ---
 name: kaizen-resolve
-description: Close out a problem document once its flaw is actually fixed — verify the flaw gone from the world's side (evidence, not "the fix task merged"), then delete the document and the journal entries it consumed in one staged change, citation-gated, and prove the remaining links resolve. The problem-side counterpart of the kaizen-review skill's pattern cascade in the journal lifecycle. Invoke when a fix for a documented problem has landed and the record should be retired, when docs/work/problems/ or the legacy docs/problems/ carries documents whose flaws may already be fixed, or when closing a task that references a problem document. A run that cannot produce the evidence stops at the evidence gate and reports a dry run rather than deleting anything; nothing is committed or pushed.
+description: Close out a problem document once its flaw is actually fixed — verify the flaw gone from the world's side (evidence, not "the fix task merged"), then delete the document and the journal entries it consumed in one staged change, citation-gated, and prove the remaining links resolve. The problem-side counterpart of the kaizen-review skill's pattern cascade in the journal lifecycle. Invoke when a fix for a documented problem has landed and the record should be retired, when docs/work/problems/ carries documents whose flaws may already be fixed, or when closing a task that references a problem document. A run that cannot produce the evidence stops at the evidence gate and reports a dry run rather than deleting anything; nothing is committed or pushed.
 ---
 
 # Kaizen Resolve
 
-A document under `docs/work/problems/` (else the legacy `docs/problems/`) persists while its flaw exists and is deleted once the flaw is *verified* gone — and a fix task completing is deliberately not the trigger. This skill is that final step as a ritual: produce the evidence, retire the document, and cascade into the journal entries it consumed. It is the problem-side counterpart of the `kaizen-review` skill, which owns the same lifecycle's pattern cascade; the shared rules live in the guide, not here.
+A document under `docs/work/problems/` persists while its flaw exists and is deleted once the flaw is *verified* gone — and a fix task completing is deliberately not the trigger. This skill is that final step as a ritual: produce the evidence, retire the document, and cascade into the journal entries it consumed. It is the problem-side counterpart of the `kaizen-review` skill, which owns the same lifecycle's pattern cascade; the shared rules live in the guide, not here.
 
 Two properties shape everything below:
 
 - **"Verified gone" is a claim about the world, not about the work.** A merged fix, a deleted task, a commit message saying "fixes X" — none of these are the flaw being gone; they are someone having tried. The evidence gate in Phase 3 demands the world's side: the failing behavior no longer reproduces, the missing gate now exists and catches a mutation, the state the document describes can no longer be found.
 - **The deletion cascades, and only this session can perform it.** The document's evidence list — the journal entries it consumed — exists nowhere else; once the file is gone, nothing records which entries it absorbed. So the document and its passing entries go in **one staged change**, each entry behind the guide's citation gate, and never in separate commits.
 
-Repo-agnostic: it works in any project with a `docs/work/problems/` or legacy `docs/problems/` directory and stops cleanly in one without. It **stages** deletions and edits; it never commits and never pushes — every removal sits in `git status` for the human to read and revert before it is real.
+Repo-agnostic: it works in any project with a `docs/work/problems/` directory and stops cleanly in one without. It **stages** deletions and edits; it never commits and never pushes — every removal sits in `git status` for the human to read and revert before it is real.
 
 **Arguments**: an optional problem-document slug or path. With none, Phase 1 lists the candidates and asks which to resolve.
 
@@ -20,26 +20,26 @@ Repo-agnostic: it works in any project with a `docs/work/problems/` or legacy `d
 
 ## Phase 1 — Preconditions
 
-1. **Does this repo track problems?** `docs/work/problems/` if it exists, else the legacy `docs/problems/` — with at least one document besides `README.md`. If the directory is absent, print `This project has no docs/work/problems/ or legacy docs/problems/ directory — nothing to resolve. Problem documents are filed by the kaizen-review skill when a flaw-shaped cluster appears.` and **stop**. If it holds only the README, say so and stop.
+1. **Does this repo track problems?** `docs/work/problems/` if it exists — with at least one document besides `README.md`. If the directory is absent, print `This project has no docs/work/problems/ directory — nothing to resolve. Problem documents are filed by the kaizen-review skill when a flaw-shaped cluster appears.` and **stop**. If it holds only the README, say so and stop.
 2. **Resolve the lifecycle source.** The guide ships beside this skill wherever the devtools tree lives — in the upstream tree at `docs/kaizen-guide.md`, and under any mount at `<mount>/docs/kaizen-guide.md` — so resolve it in this order:
 
    1. **Beside this file first**: `<this skill's physical directory>/../../../docs/kaizen-guide.md`, resolved by the physical-directory rule — follow the symlink (`readlink -f`, or equivalent) before taking `..`, so the path lands in the tree the skill actually lives in rather than the consumer's own `docs/`. One rule covers every layout and mount name ([`skill-path-resolution.md`](../../../docs/skill-path-resolution.md)).
-   2. **Then the repo-root paths**, kept for repos that mount the docs elsewhere: `<mount>/docs/kaizen-guide.md` from the repo root — where `<mount>` is the name *this* repo mounts the tree under — and the project's `docs/work/kaizen/README.md` (else the legacy `docs/kaizen/README.md`) where it links the guide.
-   3. **Then the no-mount fallback, unchanged**: in a repo that consumes vendored skill copies with no devtools mount at all, the repo's own `docs/work/problems/README.md` (else the legacy `docs/problems/README.md`) must carry the cascade rules — the two greps and the keep-on-live-citation veto, seeded from the tree's `docs/templates/problems/README.md` (resolve the tree root from this skill's physical directory).
+   2. **Then the repo-root paths**, kept for repos that mount the docs elsewhere: `<mount>/docs/kaizen-guide.md` from the repo root — where `<mount>` is the name *this* repo mounts the tree under — and the project's `docs/work/kaizen/README.md` where it links the guide.
+   3. **Then the no-mount fallback, unchanged**: in a repo that consumes vendored skill copies with no devtools mount at all, the repo's own `docs/work/problems/README.md` must carry the cascade rules — the two greps and the keep-on-live-citation veto, seeded from the tree's `docs/templates/problems/README.md` (resolve the tree root from this skill's physical directory).
 
    If none of these sources carries the rules, stop and say so — running the cascade from memory is how the lifecycle drifts across repos. Say which source you read: the Phase 6 report names it, so a run that degraded to a thinner source is distinguishable from one that found the full guide.
-3. **Read the lifecycle source now** — the guide's "The journal's lifecycle" section where it resolves, and this repo's `docs/work/problems/README.md` (else the legacy `docs/problems/README.md`) always (a seeded copy that may deliberately diverge). Not from memory, and not from this file — the two greps, the veto rules, and the same-commit reasoning are deliberately not restated here. One source per repo, so the skill and the rules cannot disagree.
+3. **Read the lifecycle source now** — the guide's "The journal's lifecycle" section where it resolves, and this repo's `docs/work/problems/README.md` always (a seeded copy that may deliberately diverge). Not from memory, and not from this file — the two greps, the veto rules, and the same-commit reasoning are deliberately not restated here. One source per repo, so the skill and the rules cannot disagree.
 
 ---
 
 ## Phase 2 — Pick the document, and read it whole
 
-If the argument names a document (slug or path), resolve it under `docs/work/problems/` (else the legacy `docs/problems/`) and use it. Otherwise list the candidates — every `docs/work/problems/*.md` (else the legacy `docs/problems/*.md`) except the README — and check recent history for signs a fix landed (`git log --oneline -15`, commits naming a problem's subject). Present the list with whatever signal you found and let the human pick (a choose-one prompt, briefed first: the popup shows no file contents, so the message before it must say what each candidate is and why it might be ready).
+If the argument names a document (slug or path), resolve it under `docs/work/problems/` and use it. Otherwise list the candidates — every `docs/work/problems/*.md` except the README — and check recent history for signs a fix landed (`git log --oneline -15`, commits naming a problem's subject). Present the list with whatever signal you found and let the human pick (a choose-one prompt, briefed first: the popup shows no file contents, so the message before it must say what each candidate is and why it might be ready).
 
 Then read the chosen document **in full**, and extract three things before anything else happens:
 
 1. **The flaw's observable shape** — what the document says is wrong, in terms of files, behaviors, and evidence. Phase 3's checks are derived from this, so quote the load-bearing claims rather than summarizing them.
-2. **The consumed entries** — every journal entry under `docs/work/kaizen/journal/` (else the legacy `docs/kaizen/journal/`) the document cites as evidence, by path. This list is what Phase 4 cascades over, and this is the last moment it exists outside git history.
+2. **The consumed entries** — every journal entry under `docs/work/kaizen/journal/` the document cites as evidence, by path. This list is what Phase 4 cascades over, and this is the last moment it exists outside git history.
 3. **Spawned work** — tasks or other documents the problem references, and anything that references it (Phase 5 needs both directions).
 
 ---
@@ -68,7 +68,7 @@ Only reached with the evidence gate passed. For **each entry** on the consumed l
 - **A prose citation from a live, editable artifact** — repair it to a relative link in the same change and keep the entry. A citation the filename grep cannot see is a dependency the next deletion pass will break; repairing it is what keeps the gate honest. (A journal entry is never edited — a prose mention inside one is a keep, full stop.)
 - **No live hit** → the entry goes.
 
-Then stage everything together — `git rm <problems-root>/<slug>.md <journal-root>/YYYY-MM/<entry>.md …`, where `<problems-root>` is `docs/work/problems/` if it exists else the legacy `docs/problems/`, and `<journal-root>` is `docs/work/kaizen/journal/` if it exists else the legacy `docs/kaizen/journal/` — **one staged change**, document and passing entries side by side. The same-commit rule and both directions of its reasoning (earlier breaks the live evidence links; later never happens) are the guide's; this is where they are executed.
+Then stage everything together — `git rm <problems-root>/<slug>.md <journal-root>/YYYY-MM/<entry>.md …`, where `<problems-root>` is `docs/work/problems/`, and `<journal-root>` is `docs/work/kaizen/journal/` — **one staged change**, document and passing entries side by side. The same-commit rule and both directions of its reasoning (earlier breaks the live evidence links; later never happens) are the guide's; this is where they are executed.
 
 ---
 
@@ -89,7 +89,7 @@ Deleting a document breaks links in files the diff never touched. Before reporti
 Print a concise block:
 
 - **The document**, and the flaw it recorded.
-- **The lifecycle source** — the file Phase 1 step 2 resolved, by path, and which branch found it (beside this file, a repo-root path, or the `docs/work/problems/README.md` / legacy `docs/problems/README.md` fallback). Always present, so a run that degraded to the fallback announces it rather than looking identical to a full resolution.
+- **The lifecycle source** — the file Phase 1 step 2 resolved, by path, and which branch found it (beside this file, a repo-root path, or the `docs/work/problems/README.md` fallback). Always present, so a run that degraded to the fallback announces it rather than looking identical to a full resolution.
 - **The evidence** — each check run, what it printed, and why that refutes the flaw's observables. For a dry run: the gate that stopped the pass, the checks that would settle it, and where they could run.
 - **The cascade** — every entry staged for deletion alongside the document, and every entry the citation check kept, naming what held it. Both halves: a cascade that reports only its deletions cannot be checked.
 - **Links** — inbound links fixed, prose citations repaired, journal entries left dangling by design, and any task flagged as possibly moot.

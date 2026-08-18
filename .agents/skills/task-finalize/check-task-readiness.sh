@@ -459,13 +459,7 @@ fi
 # A valid dependency can refer to completed work (whose brief was deleted) or
 # to a typo.  This checker deliberately warns instead of deciding that policy;
 # task-finalize's verification phase retains that stronger disambiguation.
-tasks_root=""
-for candidate in "$task_repo/docs/work/tasks" "$task_repo/docs/tasks" "$task_repo/docs/planning/tasks"; do
-    if [ -d "$candidate" ]; then
-        tasks_root="$candidate"
-        break
-    fi
-done
+tasks_root="$task_repo/docs/work/tasks"
 for dependency in "${dependencies[@]}"; do
     if ! [[ "$dependency" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
         continue

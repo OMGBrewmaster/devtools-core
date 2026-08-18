@@ -18,9 +18,9 @@ full path. If omitted, Phase 1 helps pick one.
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/work/tasks/` if it exists, else the legacy `docs/tasks/`, else `docs/planning/tasks/` — written as `<tasks>/` below. If none exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
+- **Tasks root**: `docs/work/tasks/` — written as `<tasks>/` below. If none exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` (when it exists) belongs to the autonomous task-queue runner. Never pick from it — a task sitting there is already claimed, and implementing it here races a worker that may be mid-flight on the same brief. If the user names a queued task explicitly, say that and offer the `task-move` skill to pull it back into a human bucket first.
-- **Definition of done**: `<tasks>/definition-of-done.md` where the file exists — the project-wide gates that no individual brief restates. (Post-migration the file lives at `docs/work/definition-of-done.md`; unmigrated repos keep it at `<tasks>/definition-of-done.md`.)
+- **Definition of done**: `docs/work/definition-of-done.md` where it exists — the project-wide gates that no individual brief restates.
 - **The brief's vintage** is a commit, not a date: the commit that created the task file is `git log --diff-filter=A --format=%H --follow -- <task-file> | tail -1`. Window history with `<that-sha>..HEAD`, never with `--since=<date>` — commit dates aren't topology, so a branch merged after the brief was written carries commits dated before it, and a date window silently excludes exactly those.
 
 ## The shared execution discipline

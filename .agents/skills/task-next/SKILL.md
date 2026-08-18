@@ -50,7 +50,7 @@ above is the machine-readable form of this request, for harnesses that read it.)
 
 ### 1. List (one call)
 
-Tasks root: `docs/work/tasks/` if it exists, else the legacy `docs/tasks/`, else `docs/planning/tasks/`. If none
+Tasks root: `docs/work/tasks/`. If none
 exists, print "No tasks directory found — run `task-create` to scaffold one." and stop.
 
 In one command: list `now/`, `soon/`, and `later/`, and — if `focus.md` exists at the

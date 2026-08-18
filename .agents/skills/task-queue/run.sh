@@ -96,18 +96,8 @@ if [[ -n "$ROOT_SUPERPROJECT" ]]; then
   echo "[task-queue] invoke from the mounting repository instead: bash $ROOT_SUPERPROJECT/.agents/skills/task-queue/run.sh" >&2
   exit 1
 fi
-# Tasks root: docs/work/tasks/ (the machine-owned location) with the legacy
-# docs/tasks/ and docs/planning/tasks/ as pre-migration fallbacks. Detected,
-# not configured — the same script runs unmodified in every repo. The
-# fallbacks must never fire when docs/work/tasks/ exists: a migrated repo
-# must not get a fresh queue tree at a legacy path.
-if [[ -d "$ROOT/docs/work/tasks" ]]; then
-  TASKS_REL="docs/work/tasks"
-elif [[ -d "$ROOT/docs/tasks" ]]; then
-  TASKS_REL="docs/tasks"
-else
-  TASKS_REL="docs/planning/tasks"
-fi
+# Tasks root: docs/work/tasks/ is the machine-owned location, same for every repo.
+TASKS_REL="docs/work/tasks"
 QUEUE_REL="$TASKS_REL/queued"
 QUEUE_DIR="$ROOT/$QUEUE_REL"
 BLOCKED_DIR="$QUEUE_DIR/blocked"

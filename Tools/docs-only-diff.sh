@@ -25,9 +25,7 @@
 # claim deliberately, in the same file that lists the gates it exempts you from.
 #
 # The declaration lives between sentinels in the repo's definition-of-done.md —
-# docs/work/definition-of-done.md post-migration, with the legacy
-# docs/tasks/definition-of-done.md and docs/planning/tasks/definition-of-done.md
-# as the pre-migration fallback (the same detection order the task skills use):
+# docs/work/definition-of-done.md:
 #
 #     <!-- DOCS-ONLY:BEGIN — paths no gate in this repo reads. DO NOT REMOVE. -->
 #     docs/
@@ -53,12 +51,9 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 2
 fi
 
-dod=""
-for cand in docs/work/definition-of-done.md docs/tasks/definition-of-done.md docs/planning/tasks/definition-of-done.md; do
-  [ -f "$cand" ] && { dod="$cand"; break; }
-done
-if [ -z "$dod" ]; then
-  echo "no definition-of-done.md found (looked in docs/work/, docs/tasks/ and docs/planning/tasks/)" >&2
+dod="docs/work/definition-of-done.md"
+if [ ! -f "$dod" ]; then
+  echo "no definition-of-done.md found (looked in docs/work/)" >&2
   echo "docs-only: cannot decide" >&2
   exit 2
 fi

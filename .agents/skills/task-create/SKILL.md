@@ -11,7 +11,7 @@ Create a new task document in this repo's tasks directory.
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/work/tasks/` if it exists, else the legacy `docs/tasks/`, else `docs/planning/tasks/` — the detection order every task skill uses, with the legacy paths as the pre-migration fallback. Written as `<tasks>/` below.
+- **Tasks root**: `docs/work/tasks/` — written as `<tasks>/` below.
 - **Queue**: anything mentioning `<tasks>/queued/` applies only when that directory exists (it feeds the autonomous task-queue runner). In repos without it, skip those parts silently.
 - **Repo-specific authoring notes** (domain jargon to avoid in In brief, area maps, completion gates) live in `<tasks>/README.md` — read it before writing prose on the user's behalf.
 - **Bucket definitions**: [`bucket-definitions.md`](bucket-definitions.md), the file next to this one — what each bucket means and the shape the queue aims for, shared with every other task skill so they cannot drift. A repo's own bucket lists are courtesy summaries of it, never a second definition.
@@ -25,9 +25,8 @@ one. Each repo exposes it at the familiar path as a **symlink**, never a copy:
 <tasks>/_TEMPLATE.md -> <relative path back to repo root>/.claude/skills/task-create/_TEMPLATE.md
 ```
 
-(For `docs/work/tasks/` and `docs/planning/tasks/` that is
-`../../../.claude/skills/task-create/_TEMPLATE.md`; for `docs/tasks/` it is
-`../../.claude/skills/task-create/_TEMPLATE.md` — the `../` count is the tasks
+(From `docs/work/tasks/` that is
+`../../../.claude/skills/task-create/_TEMPLATE.md` — the `../` count is the tasks
 root's depth below the repo root.)
 
 The `.claude/skills/` paths on this page are the subject matter — the symlink convention this skill
@@ -42,8 +41,7 @@ place (the devtools tree's `Tools/migrate-task-format.sh` does this, among other
 ## Phase 1 — Check Structure
 
 If no tasks root exists at all, offer to create one at `docs/work/tasks/` (the
-machine-owned location — the legacy `docs/tasks/` default is the pre-migration
-fallback, and a migrated repo must never be scaffolded back at a legacy path):
+machine-owned location):
 - `docs/work/tasks/` with a `README.md`, plus `_TEMPLATE.md` created as a symlink:
 
   ```bash

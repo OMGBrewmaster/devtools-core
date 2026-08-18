@@ -14,7 +14,7 @@ and hands them off.
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/work/tasks/` if it exists, else the legacy `docs/tasks/`, else `docs/planning/tasks/` — written as `<tasks>/` below. If none exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
+- **Tasks root**: `docs/work/tasks/` — written as `<tasks>/` below. If none exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 - **Queue**: `<tasks>/queued/` (when it exists) holds tasks claimed by the autonomous runner — exclude it from the audit; the runner re-verifies its own briefs at pickup.
 - **Creation dates** are not recorded in the documents — derive them from git: `git log --diff-filter=A --follow --format=%cs -- <task-file>`. Use the date only when reporting a task's age. For windowing history, use the creating *commit* (`--format=%H` on the same command, `| tail -1`) and a `<sha>..HEAD` range — never `--since=<date>`, which silently excludes commits merged after the task was written but dated before it.
 

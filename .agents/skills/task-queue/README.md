@@ -1,7 +1,7 @@
 # task-queue skill
 
 Autonomous task-queue loop runner. Watches the `queued/` bucket of the repo's
-tasks directory — `docs/work/tasks/queued/` if it exists, else the legacy `docs/tasks/queued/`, else `docs/planning/tasks/queued/` for repos that keep tasks under planning; written `<tasks>/queued/` below — and,
+tasks directory — `docs/work/tasks/queued/`; written `<tasks>/queued/` below — and,
 whenever the queue holds a claimable task no runner is already working —
 dependencies merged, ordered by frontmatter priority — claims it, creates a
 dedicated git worktree on a branch off

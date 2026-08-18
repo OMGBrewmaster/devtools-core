@@ -13,7 +13,7 @@ Prepare a task for execution by a later session: verify the task's claims agains
 
 ## Repo conventions (resolve first)
 
-- **Tasks root**: `docs/work/tasks/` if it exists, else the legacy `docs/tasks/`, else `docs/planning/tasks/` — written as `<tasks>/` below. If none exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
+- **Tasks root**: `docs/work/tasks/` — written as `<tasks>/` below. If none exists, print "No tasks directory found — invoke the `task-create` skill to scaffold one." and stop.
 
 Finalization's deliverable is a task verified, decided, and stamped. This skill edits and stages files (it never renames or moves a task), ends with a commit offer, and **never pushes** — synchronizing git with the remote is the user's, outside this skill. The run's classification decides the offer's shape:
 
@@ -26,7 +26,7 @@ Phases 3, 4a, 5b, 7, and 8 flag the edits that make a run authored-content as th
 
 ## Phase 1 — Resolve the Task
 
-**The task argument is required.** Resolve it against the bucket directories `<tasks>/{now,soon,later,never,queued}/` (a bucket absent in this repo just matches nothing), accepting a bare name (with or without `.md`) or a path.
+**The task argument is required.** Resolve it against the bucket directories `<tasks>/{now,soon,later,never,queued}/`, accepting a bare name (with or without `.md`) or a path.
 
 One match → use it, printing the resolved path before continuing. Anything else — no argument, no match, or several — stop and say which it was.
 

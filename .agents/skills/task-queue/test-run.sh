@@ -240,7 +240,7 @@ check "non-Git directory is rejected by the root guard" "rejected" \
 check "physical submodule runner is rejected before it can create queue state" "rejected" \
   "$( [[ "$(runner_status "$GUARD_MOUNT/workshop/.agents/skills/task-queue/run.sh" "$TESTROOT/submodule.log")" != 0 ]] && echo rejected || echo accepted )"
 check "submodule rejection leaves every task-root and state candidate absent" "absent" \
-  "$( for p in .task-queue docs/work/tasks/queued docs/tasks/queued docs/planning/tasks/queued; do [[ -e "$GUARD_MOUNT/workshop/$p" ]] && exit 1; done; echo absent )"
+  "$( for p in .task-queue docs/work/tasks/queued; do [[ -e "$GUARD_MOUNT/workshop/$p" ]] && exit 1; done; echo absent )"
 check "nested-root error names its root and enclosing toplevel invocation" "descriptive" \
   "$( grep -Fq "resolved repo root '$GUARD_NESTED'" "$TESTROOT/nested.log" \
        && grep -Fq "enclosing toplevel '$GUARD_PLAIN'" "$TESTROOT/nested.log" \
@@ -263,9 +263,9 @@ check "logical .claude spelling watches the mounting repo queue" "correct" \
 check "absolute logical spelling watches the mounting repo queue" "correct" \
   "$(banner_verdict "$(realpath -s "$GUARD_MOUNT/.agents/skills/task-queue/run.sh")" "$GUARD_MOUNT/docs/work/tasks/queued" "$TESTROOT/absolute-banner.log")"
 check "native devtools-style checkout watches its own queue" "correct" \
-  "$(banner_verdict "$GUARD_PLAIN/.agents/skills/task-queue/run.sh" "$GUARD_PLAIN/docs/planning/tasks/queued" "$TESTROOT/native-banner.log")"
+  "$(banner_verdict "$GUARD_PLAIN/.agents/skills/task-queue/run.sh" "$GUARD_PLAIN/docs/work/tasks/queued" "$TESTROOT/native-banner.log")"
 check "linked worktree launch from inside the worktree watches its own queue" "correct" \
-  "$(banner_verdict ".agents/skills/task-queue/run.sh" "$GUARD_WORKTREE/docs/planning/tasks/queued" "$TESTROOT/worktree-banner.log" "$GUARD_WORKTREE")"
+  "$(banner_verdict ".agents/skills/task-queue/run.sh" "$GUARD_WORKTREE/docs/work/tasks/queued" "$TESTROOT/worktree-banner.log" "$GUARD_WORKTREE")"
 
 # The resolver's mounting-repo fallback is not theoretical: PIA Maker keeps
 # audit-queue and repair_doc_links.py at its own root, beside a symlinked

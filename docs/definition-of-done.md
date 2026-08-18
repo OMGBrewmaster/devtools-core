@@ -6,10 +6,7 @@ autonomous worker.
 
 ## The rule
 
-**Every repo names its gates in one file: `docs/work/definition-of-done.md`** — with
-the legacy `<tasks>/definition-of-done.md` as the pre-migration fallback
-(`docs/tasks/definition-of-done.md`, or `docs/planning/tasks/definition-of-done.md` in
-a repo that keeps its tasks there). Both routes still count while the fleet migrates.
+**Every repo names its gates in one file: `docs/work/definition-of-done.md`**
 It lists each gate's command, its pass condition, and the surface it applies to. A repo
 with no automated gates says so in one line; that is an answer. A *missing* file is the
 only real gap, and it is the one thing to report rather than work around.

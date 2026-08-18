@@ -12,7 +12,7 @@ pipes it to this script on stdin, and selects the output with ``--emit``:
   re-runs of the *same* failure (shifted line numbers, new timestamps)
   fingerprint identically.
 - ``--emit brief`` — a queue-ready task brief (markdown, conforming to
-  ``docs/work/tasks/_TEMPLATE.md`` — legacy ``docs/planning/tasks/_TEMPLATE.md``)
+  ``docs/work/tasks/_TEMPLATE.md``)
   instructing a worker to fix the failure.
 
 CI log output is untrusted input — log lines can contain anything, including
