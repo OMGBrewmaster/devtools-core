@@ -319,8 +319,7 @@ fi
 # A symlink, never a copy; non-dangling; resolving into this repo's own
 # .agents/skills/task-create/ (the devtools source-repo shape), or into this
 # repo's devtools or workshop checkout (the mirror consumers mount; the
-# transitional devtools-core name stayed accepted until every consumer
-# migrated, then was retired by the rename task).
+# pre-rename placeholder mount name was retired once every consumer migrated).
 # The devtools/ and workshop/ cases are matched by exact file, not by
 # directory prefix: a repo-local directory that merely happens to be named
 # devtools/ (pia-maker's devtools/ Python package) must not satisfy the clause.
@@ -339,16 +338,16 @@ else
             "$root_abs"/.agents/skills/task-create/_TEMPLATE.md)
                 pass 9 "docs/work/tasks/_TEMPLATE.md resolves into this repo's own skill tree (.agents/skills/task-create/_TEMPLATE.md — the devtools source-repo shape)"
                 ;;
-            "$root_abs"/devtools/.agents/skills/task-create/_TEMPLATE.md | "$root_abs"/workshop/.agents/skills/task-create/_TEMPLATE.md | "$root_abs"/devtools-core/.agents/skills/task-create/_TEMPLATE.md)
+            "$root_abs"/devtools/.agents/skills/task-create/_TEMPLATE.md | "$root_abs"/workshop/.agents/skills/task-create/_TEMPLATE.md)
                 rel="${resolved#"$root_abs"/}"
                 pass 9 "docs/work/tasks/_TEMPLATE.md resolves into this repo's own devtools checkout ($rel)"
                 ;;
             *)
-                fail 9 "docs/work/tasks/_TEMPLATE.md resolves outside this repo's devtools, workshop, or devtools-core checkout: $resolved"
+                fail 9 "docs/work/tasks/_TEMPLATE.md resolves outside this repo's devtools or workshop checkout: $resolved"
                 ;;
         esac
     else
-        fail 9 "docs/work/tasks/_TEMPLATE.md is a dangling symlink — it must resolve into this repo's devtools, workshop, or devtools-core checkout"
+        fail 9 "docs/work/tasks/_TEMPLATE.md is a dangling symlink — it must resolve into this repo's devtools or workshop checkout"
     fi
 fi
 
