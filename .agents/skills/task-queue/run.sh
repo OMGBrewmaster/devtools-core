@@ -2359,7 +2359,7 @@ while true; do
 
   # Populate submodules. `git worktree add` writes .gitmodules and an EMPTY
   # submodule directory — it never checks a submodule out — and in consuming
-  # repos that reach this skill through devtools-core, every shared skill in
+  # repos that reach this skill through workshop, every shared skill in
   # .claude/skills/ is a symlink into that directory. Skip this and the
   # worker gets dangling links: no /task-* commands, no templates, a pytest
   # collection error where tests import devtools.scripts — and the failure is

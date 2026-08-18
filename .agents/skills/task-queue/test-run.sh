@@ -168,8 +168,8 @@ git -C "$GUARD_TOOLING" add -A && git -C "$GUARD_TOOLING" commit -qm "seed runne
 git -C "$GUARD_MOUNT" init -q -b main
 mkdir -p "$GUARD_MOUNT/.agents/skills" "$GUARD_MOUNT/.claude/skills" \
          "$GUARD_MOUNT/docs/work/tasks"
-git -C "$GUARD_MOUNT" -c protocol.file.allow=always submodule add -q "$GUARD_TOOLING" devtools-core
-ln -s ../../devtools-core/.agents/skills/task-queue "$GUARD_MOUNT/.agents/skills/task-queue"
+git -C "$GUARD_MOUNT" -c protocol.file.allow=always submodule add -q "$GUARD_TOOLING" workshop
+ln -s ../../workshop/.agents/skills/task-queue "$GUARD_MOUNT/.agents/skills/task-queue"
 ln -s ../../.agents/skills/task-queue "$GUARD_MOUNT/.claude/skills/task-queue"
 
 git clone -q "$GUARD_TOOLING" "$GUARD_PLAIN"
@@ -199,7 +199,7 @@ check "plain clone has successful empty-superproject Git queries" \
 check "linked worktree has successful empty-superproject Git queries" \
   "top=ok super=empty" "$(git_shape "$GUARD_WORKTREE")"
 check "submodule has successful nonempty-superproject Git query" \
-  "top=ok super=nonempty" "$(git_shape "$GUARD_MOUNT/devtools-core")"
+  "top=ok super=nonempty" "$(git_shape "$GUARD_MOUNT/workshop")"
 check "nested directory has successful enclosing-toplevel Git query" \
   "top=ok super=empty" "$(git_shape "$GUARD_NESTED")"
 check "non-Git directory observes Git command failure separately" \
@@ -238,16 +238,16 @@ check "nested directory is rejected by the root guard" "rejected" \
 check "non-Git directory is rejected by the root guard" "rejected" \
   "$( [[ "$(runner_status "$GUARD_NONGIT/.agents/skills/task-queue/run.sh" "$TESTROOT/non-git.log")" != 0 ]] && echo rejected || echo accepted )"
 check "physical submodule runner is rejected before it can create queue state" "rejected" \
-  "$( [[ "$(runner_status "$GUARD_MOUNT/devtools-core/.agents/skills/task-queue/run.sh" "$TESTROOT/submodule.log")" != 0 ]] && echo rejected || echo accepted )"
+  "$( [[ "$(runner_status "$GUARD_MOUNT/workshop/.agents/skills/task-queue/run.sh" "$TESTROOT/submodule.log")" != 0 ]] && echo rejected || echo accepted )"
 check "submodule rejection leaves every task-root and state candidate absent" "absent" \
-  "$( for p in .task-queue docs/work/tasks/queued docs/tasks/queued docs/planning/tasks/queued; do [[ -e "$GUARD_MOUNT/devtools-core/$p" ]] && exit 1; done; echo absent )"
+  "$( for p in .task-queue docs/work/tasks/queued docs/tasks/queued docs/planning/tasks/queued; do [[ -e "$GUARD_MOUNT/workshop/$p" ]] && exit 1; done; echo absent )"
 check "nested-root error names its root and enclosing toplevel invocation" "descriptive" \
   "$( grep -Fq "resolved repo root '$GUARD_NESTED'" "$TESTROOT/nested.log" \
        && grep -Fq "enclosing toplevel '$GUARD_PLAIN'" "$TESTROOT/nested.log" \
        && grep -Fq "bash $GUARD_PLAIN/.agents/skills/task-queue/run.sh" "$TESTROOT/nested.log" \
        && echo descriptive || echo vague )"
 check "submodule-root error names its root and mounting-repo invocation" "descriptive" \
-  "$( grep -Fq "resolved repo root '$GUARD_MOUNT/devtools-core'" "$TESTROOT/submodule.log" \
+  "$( grep -Fq "resolved repo root '$GUARD_MOUNT/workshop'" "$TESTROOT/submodule.log" \
        && grep -Fq "submodule of '$GUARD_MOUNT'" "$TESTROOT/submodule.log" \
        && grep -Fq "bash $GUARD_MOUNT/.agents/skills/task-queue/run.sh" "$TESTROOT/submodule.log" \
        && echo descriptive || echo vague )"

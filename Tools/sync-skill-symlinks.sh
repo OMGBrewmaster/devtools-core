@@ -22,7 +22,7 @@
 # The devtools tree is found by discovery, not by name: this script ships inside
 # the tree it looks for (at <mount>/Tools/), so the script's own physical
 # location names the mount. That works for the upstream layout (devtools/) and
-# for any consumer mounting the tree under another name (devtools-core/ and
+# for any consumer mounting the tree under another name (workshop/ and
 # beyond). When the script's own tree lives OUTSIDE the target repo — the
 # propagation case, where a fleet copy syncs another checkout — the mount's
 # basename is re-derived at the repo root. The one derived value feeds both the
@@ -67,7 +67,7 @@ REPO_ROOT="$(cd "$REPO_ROOT" && pwd -P)"
 # directory is the mount — whatever it is named — when that mount lies inside
 # REPO_ROOT. Step 2, basename fallback: a script invoked from some OTHER
 # checkout (fleet propagation) has its mount outside the target repo, so re-
-# derive the name at the repo root — `devtools` for a fleet sweep, `devtools-core`
+# derive the name at the repo root — `devtools` for a fleet sweep, `workshop`
 # for the mirror consumer. Step 3: fail, naming every path checked.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 SCRIPT_MOUNT="$(dirname "$SCRIPT_DIR")"

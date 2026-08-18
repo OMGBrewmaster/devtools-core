@@ -280,7 +280,7 @@ and a fully-populated one both exist.
 > in a consumer that mounts the tree at `devtools/`). The repo-root argument is **required**: a
 > default would silently audit the wrong tree. The reference implementation wires the gate
 > as `make agent-surfaces` inside its `make check`; consumers without
-> fleet access run the same gate from the public mirror at the same path (`OMGBrewmaster/devtools-core`,
+> fleet access run the same gate from the public mirror at the same path (`OMGBrewmaster/workshop`,
 > `Tools/check-agent-surfaces.sh`). Checks 10–11 stay manual by design — both are judgments
 > about a script's *body*, and their mechanical forms ("a file named `session-start.sh` exists",
 > "the string `AGENTS.md` appears in a script") pass on a stub; the script header states the

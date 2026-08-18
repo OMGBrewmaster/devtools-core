@@ -5,7 +5,7 @@
 # The fleet is consolidating the files the devtools machine reads and writes
 # into one machine-owned directory, docs/work/, inside every repository. The
 # contract that specifies the layout is private — deliberately not published to
-# the devtools-core mirror — so this script encodes the clause matrix directly
+# the workshop mirror — so this script encodes the clause matrix directly
 # in the clearly labelled sections below and never reads the contract at
 # runtime; consumers receive the contract's decisions through their migration
 # briefs. Runtime output therefore never requires a private document to be

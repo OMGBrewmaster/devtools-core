@@ -14,8 +14,8 @@ directory the file lives in once every symlink on the path to it is followed
 the skill through.
 
 Consuming repos reach a skill through a symlink (e.g.
-`.claude/skills/docs-audit -> ../../devtools-core/.agents/skills/docs-audit`
-in a repo that mounts the tree as `devtools-core/`), so resolving
+`.claude/skills/docs-audit -> ../../workshop/.agents/skills/docs-audit`
+in a repo that mounts the tree as `workshop/`), so resolving
 `../../../docs/` **lexically** from the link path lands on the consuming repo's
 own `docs/` and misses the document one directory away. Follow the file first,
 then take `..`. One rule then covers every layout:
