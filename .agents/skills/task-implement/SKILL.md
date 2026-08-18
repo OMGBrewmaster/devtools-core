@@ -120,22 +120,16 @@ repo if the brief names no Scope). Empty output: trust the brief as written.
 Non-empty: re-verify only what moved — read the commits, read the cited
 constructs, and where brief and code disagree, the code wins.
 
-**Before trusting an empty result, confirm this repo tracks the Scope paths.**
-`git log <sha>..HEAD -- <path>` prints nothing and exits 0 when the path is
-untracked, gitignored, or in a different repository — identical to "nothing
-changed." Trusting the brief on that basis means trusting a check that never
-ran. `git ls-files --error-unmatch -- "$path"` settles it. This is routine, not
+The `staleness-check` block's tracked-path guard applies here in full: before
+trusting an empty result, confirm this repo tracks the Scope paths with
+`git ls-files --error-unmatch -- "$path"`, because `git log` prints nothing and
+exits 0 for an untracked, gitignored, or foreign-repo path. This is routine, not
 exotic: a brief whose Scope names a sibling clone or a submodule (hq's tasks name
-`devtools/` paths, which hq gitignores) hits it every time. An untracked Scope
-path demotes the task to **Tier C** for that path — do the inline verification
-rather than assuming the brief is current.
-
-> The shared `staleness-check` block does not carry this guard, because its text
-> is spliced verbatim into the autonomous worker's prompt and that prompt is
-> required to stay byte-identical (see *Relationship to the task-queue worker*).
-> The worker's own exposure is smaller — it runs inside the repo that owns the
-> task — but the guard belongs in the shared block eventually. Add it there in a
-> change that deliberately re-baselines the worker prompt, not as a side effect.
+`devtools/` paths, which hq gitignores) hits it every time. In this skill an
+untracked Scope path demotes the task to **Tier C** for that path — do the
+inline verification below rather than assuming the brief is current. That
+demotion is the one part the shared block does not state, because the worker has
+no tier ladder to demote into.
 
 **Tier C — no `finalized-at`.** The dominant case. Run the finalize-style
 verification inline before writing code:

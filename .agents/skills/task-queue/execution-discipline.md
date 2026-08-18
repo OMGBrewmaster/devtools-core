@@ -85,8 +85,15 @@ Where it goes in the worker prompt: step 1, after the brief has been read.
 frontmatter `finalized-at: <sha>` records the commit those
 observations were verified against. Run
 `git log --oneline <sha>..HEAD -- <paths from the brief's Scope section>`
-(whole repo if the brief has no Scope). Empty output → trust the
-brief as written. Non-empty → the ground moved after verification:
+(whole repo if the brief has no Scope). Before trusting an empty
+result, confirm this repo tracks those paths:
+`git ls-files --error-unmatch -- <path>`. `git log` prints nothing
+and exits 0 for a path that is untracked, gitignored, or in another
+repository — byte-identical to its output for a tracked path that
+nothing touched. An untracked Scope path means rot is **unknown**,
+not absent: verify that path's claims inline instead. Empty output
+over paths confirmed tracked → trust the brief as written.
+Non-empty → the ground moved after verification:
 re-verify the brief's factual claims (Context, Recommended solution,
 cited anchors) against the current code before implementing, and
 where brief and code disagree, the code wins. The Acceptance
