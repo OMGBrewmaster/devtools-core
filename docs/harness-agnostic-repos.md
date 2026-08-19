@@ -234,7 +234,12 @@ top-level `servers` key; Codex uses `~/.codex/config.toml`.
 - **Keep `.mcp.json` for the harnesses in use.** It is config, not content — the
   no-second-copy rule does not bite, because there is no source of truth to drift from.
 - **Do not pre-emptively write config for harnesses nobody runs**, same as the
-  instruction-file rule.
+  instruction-file rule. This is a trigger, not a ban: the devcontainer kit was
+  Claude-only under exactly this clause, with the split written down as the thing to do
+  *the day a second harness self-hosted*. That day came — Oh My Pi and Codex both run in
+  those containers now — and the kit split into a neutral base plus one file per harness
+  (`Tools/devcontainer/build/`). Record the condition alongside the absence, so a later
+  reader can tell whether it has been met.
 - **Record the decision** in the repo's architecture doc, so the absence reads as a
   choice rather than an oversight.
 
