@@ -155,10 +155,32 @@ sync_surface() {
   return 0
 }
 
+# Roster-staleness seam. This script's own run can land mid-session — a
+# consumer syncing while a session is open — and no harness refresh observes
+# it. Compare the skill entry set before and after, and say so when it
+# changed, so the operator gets the reload instruction exactly when this run
+# made it necessary. Also wire the git hooks (core.hooksPath) that carry the
+# same warning for FUTURE tree-changing git operations — a manual pull of an
+# already-prepared consumer commit never runs this script, so the hooks are
+# the seam that covers that route (Tools/check-skill-roster-freshness.sh).
+roster_check="$SCRIPT_DIR/check-skill-roster-freshness.sh"
+roster_before="$(bash "$roster_check" print 2>/dev/null)" || roster_before=""
+roster_changed() { # prints the reload instruction, once, when the set changed
+  [ -n "$roster_before" ] || return 0
+  [ "$roster_before" = "$(bash "$roster_check" print 2>/dev/null)" ] && return 0
+  echo "warning: the shared skill entry set changed — a session already open in this repo is serving stale skill names; run /reload-skills (Claude Code) or /reload (Oh My Pi)"
+}
+
 # Canonical first: the bridge's links point into it, so syncing the bridge
 # against a not-yet-written .agents/skills would report every link dangling.
 sync_surface "$REPO_ROOT/.agents/skills" "../../$MOUNT_NAME/.agents/skills" "canonical"
 sync_surface "$REPO_ROOT/.claude/skills" "../../.agents/skills" "Claude Code bridge"
+
+roster_changed
+if [ -f "$roster_check" ]; then
+  hooks_rel="$(realpath --relative-to="$REPO_ROOT" "$MOUNT_DIR" 2>/dev/null)/Tools/hooks"
+  [ -d "$REPO_ROOT/$hooks_rel" ] && git -C "$REPO_ROOT" config core.hooksPath "$hooks_rel"
+fi
 
 if [ "$dangling" -gt 0 ]; then
   echo "FAILED: ${dangling} shared skill link(s) do not resolve — see errors above" >&2

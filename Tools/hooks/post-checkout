@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# post-checkout hook: same staleness check as post-merge, for branch switches
+# and checkouts that change the skill entry set mid-session. Wired through
+# core.hooksPath; see Tools/check-skill-roster-freshness.sh.
+exec "$(dirname "$(readlink -f "$0")")/../check-skill-roster-freshness.sh" check

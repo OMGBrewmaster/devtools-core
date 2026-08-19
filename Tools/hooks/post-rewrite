@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# post-rewrite hook: same staleness check as post-merge, for rebases
+# (`git pull --rebase`, `git rebase`) that change the skill entry set
+# mid-session — post-merge does not fire for them. Wired through
+# core.hooksPath; see Tools/check-skill-roster-freshness.sh.
+exec "$(dirname "$(readlink -f "$0")")/../check-skill-roster-freshness.sh" check

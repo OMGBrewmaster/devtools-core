@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# post-merge hook: warn when the merged tree changed the skill entry set while
+# a session may be serving a stale roster. Wired through core.hooksPath by the
+# session bootstrap and by Tools/sync-skill-symlinks.sh. The mechanism, and
+# why a warning here is the only seam that observes both a manual pull and the
+# propagation tooling's fast-forwards: Tools/check-skill-roster-freshness.sh.
+exec "$(dirname "$(readlink -f "$0")")/../check-skill-roster-freshness.sh" check
