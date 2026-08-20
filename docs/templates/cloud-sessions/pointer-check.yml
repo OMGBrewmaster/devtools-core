@@ -1,0 +1,69 @@
+# Template: guards the pointer discipline for one PUBLIC upstream submodule —
+# the recorded gitlink must be reachable from the upstream's default branch,
+# or the PR fails. Copy to .github/workflows/ in the superproject, replace the
+# <PLACEHOLDERS>, and duplicate the job per public submodule you want guarded.
+#
+# Private upstreams: the anonymous clone below cannot see them — either skip
+# the check for those submodules or provide a read token (see
+# <mount>/docs/secrets-in-workflows.md). A lagging pointer is safe and needs
+# no guard; this catches the two unsafe cases: a pointer referencing a commit
+# the upstream's default branch will never contain (e.g. a squash-merged PR
+# branch), and a pointer moving BACKWARDS — the usual cause being a gitlink
+# conflict between parallel tasks resolved to the older SHA (a
+# near-miss, 2026-07-17). Worked example: a fleet repo's
+# .github/workflows/pointer-check.yml.
+name: Wrapper checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  <SUBMODULE-NAME>-pointer-reachable:
+    runs-on: ubuntu-latest
+    steps:
+      # Submodules deliberately NOT checked out; the gitlink SHA is all we need.
+      - uses: actions/checkout@v7
+
+      - name: <SUBMODULE_PATH> pointer is an ancestor of upstream <DEFAULT_BRANCH>
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD:<SUBMODULE_PATH>)"
+          echo "Recorded pointer: $sha"
+          # Blob-less, single-branch bare clone: the full commit graph of the
+          # default branch with no file contents — enough for an ancestry
+          # check, cheap to fetch.
+          git clone --bare --filter=blob:none --single-branch --branch <DEFAULT_BRANCH> \
+            <UPSTREAM_HTTPS_URL> /tmp/upstream.git
+          if git -C /tmp/upstream.git merge-base --is-ancestor "$sha" <DEFAULT_BRANCH>; then
+            echo "OK: pointer is reachable from upstream <DEFAULT_BRANCH>."
+          else
+            echo "::error::Recorded <SUBMODULE_PATH> pointer $sha is not reachable from <UPSTREAM_HTTPS_URL> <DEFAULT_BRANCH>. Merge the submodule PR first, then bump the pointer to the post-merge SHA — never a PR-branch SHA (squash merges orphan them)."
+            exit 1
+          fi
+
+          # Monotonicity: the pointer may never move backwards relative to
+          # what it is replacing (PR: the base branch; push: the pre-push
+          # commit). Equal or descendant = fine; ancestor = a regression.
+          if [ "$EVENT" = "pull_request" ]; then prev_ref="$BASE_REF"; else prev_ref="$BEFORE"; fi
+          case "$prev_ref" in ""|0000000000000000000000000000000000000000)
+            echo "No previous state to compare (new ref); skipping monotonicity check."
+            exit 0
+          esac
+          git fetch --depth=1 origin "$prev_ref"
+          old="$(git rev-parse FETCH_HEAD:<SUBMODULE_PATH> 2>/dev/null || echo '')"
+          if [ -z "$old" ]; then
+            echo "Previous state has no <SUBMODULE_PATH> gitlink; skipping monotonicity check."
+          elif ! git -C /tmp/upstream.git cat-file -e "$old" 2>/dev/null; then
+            echo "Previous pointer $old is not on upstream <DEFAULT_BRANCH>; moving onto it is the fix — skipping monotonicity check."
+          elif git -C /tmp/upstream.git merge-base --is-ancestor "$old" "$sha"; then
+            echo "OK: pointer moves forward ($old -> $sha)."
+          else
+            echo "::error::Pointer moves BACKWARDS ($old -> $sha). This usually means a gitlink conflict was resolved to the older SHA — rebase and take whichever SHA is later on upstream <DEFAULT_BRANCH>, then run: git submodule update."
+            exit 1
+          fi

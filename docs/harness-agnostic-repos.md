@@ -318,8 +318,8 @@ and a fully-populated one both exist.
 5. **Split the hooks.** Neutral body out to a plain script; vendor envelope stays behind.
 6. **Repoint functional references.** Sentinels, doc-navigation roots, links.
 7. **Verify in more than one harness** — and record it in
-   [`harness-verification-log.md`](harness-verification-log.md), one dated entry per
-   harness per repo; the gate verifies artifacts, the log is the behavior evidence. In
+   a repository-local verification log, one dated entry per harness per repo;
+   the gate verifies artifacts and the log is the behavior evidence. In
    Claude Code: fresh session, probe a fact
    stated only in `AGENTS.md`, confirm no import-approval dialog blocks a
    non-interactive session, confirm skills still invoke through the symlinks. Elsewhere:
@@ -376,17 +376,16 @@ change.
 
 ## See also
 
-- [`harness-verification-log.md`](harness-verification-log.md) — the behavior half of
-  adoption step 7: dated records of what real sessions in non-Claude harnesses actually
-  did with each surface
+- A repository-local harness-verification log — the behavior half of adoption
+  step 7, recording what real sessions in non-Claude harnesses actually did
+  with each surface
 - [`signal-hygiene.md`](signal-hygiene.md) — how to know a step actually happened; the
   source of the checklist's "assert a positive property" rule
 - [`definition-of-done.md`](definition-of-done.md) — the gates surface, and where each
   repo names its own
 - [`documentation-style-guide.md`](documentation-style-guide.md) — house conventions
-- [`devtools-propagation.md`](devtools-propagation.md) — how a change here reaches
-  consumers, given pinned edges *(fleet-internal: carries the consumer inventory and is
-  deliberately not published to the mirror — the link resolves only inside a fleet checkout)*
+- The fleet-internal propagation guide is deliberately not linked here because
+  Workshop is standalone and does not publish the private consumer inventory.
 - [AGENTS.md](https://agents.md/) — the standard's site
 - [Agent Skills specification](https://agentskills.io/specification) — the authoritative
   skill format reference

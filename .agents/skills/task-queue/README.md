@@ -18,10 +18,9 @@ self-contained — `SKILL.md` (the `/task-queue` quick-start), `run.sh` (the
 loop runner), `initial-prompt.md` (the worker prompt), and this file all
 live together in this directory.
 
-These notes cover the runner specifically (operating, logs, sandboxing). For
-the full pipeline — how tasks get into `queued/` in the first place, how the
-spawned session is prompted, what conventions it follows — read
-[`docs/procedures/development/task-queue.md`](../../../../docs/procedures/development/task-queue.md) first.
+These notes cover the runner specifically (operating, logs, sandboxing). The
+public skill files in this directory carry the complete standalone workflow;
+the private fleet procedure is deliberately not linked from Workshop.
 
 ## Quick start
 

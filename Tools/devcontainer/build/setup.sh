@@ -37,11 +37,14 @@ git config --global filter.lfs.process "git-lfs filter-process"
 git config --global filter.lfs.required true
 echo "  Git LFS filters registered"
 
-# 2. Git config
+# 2. Git config. Contributor-neutral: the git identity is deliberately NOT set
+# here — this kit ships in the public Workshop mirror, and a hard-coded
+# maintainer identity is exactly the kind of personal default that must not.
+# The private directory-copy build applies identity from the overlay sibling
+# (section 2b); a public build stays anonymous and the user's first commit
+# prompts for identity, which is the correct behavior for a contributor.
 git config --global core.autocrlf input
 git config --global safe.directory /workspace
-git config --global user.name "Chris Sanford"
-git config --global user.email "brewmaster@omgbrews.com"
 
 # The macOS bind-mount filesystem returns stat metadata git does not trust, so a
 # clean file reads as modified and a rebase pick dies with "Your local changes to
@@ -58,6 +61,31 @@ git config --global user.email "brewmaster@omgbrews.com"
 git config --global core.checkStat minimal
 git config --global core.trustctime false
 echo "  Git config set"
+
+# 2b. Optional private overlay. build/ is public — the mirror publishes it and
+# a contributor's build must stay anonymous — so maintainer identity (and any
+# other personal default) lives in a sibling directory that only the PRIVATE
+# directory-copy build carries into the image. The private Dockerfile COPYs
+# devtools/Tools/devcontainer/overlay to /tmp/devcontainer-overlay (and sets
+# DEVCONTAINER_OVERLAY_DIR); a live re-run from a private checkout finds the
+# same directory as ../overlay beside this file. A public build has neither,
+# and skips the block: no overlay file, no identity.
+overlay_dir="${DEVCONTAINER_OVERLAY_DIR:-$BUILD_DIR/../overlay}"
+if [ -d "$overlay_dir" ]; then
+  overlay_applied=0
+  for overlay in "$overlay_dir"/*.sh; do
+    [ -f "$overlay" ] || continue
+    # shellcheck source=Tools/devcontainer/overlay/user-identity.sh
+    # shellcheck disable=SC1090  # the overlay path is resolved at runtime
+    # shellcheck disable=SC1091 # The optional private identity overlay is not public.
+    source "$overlay"
+    overlay_applied=1
+    echo "  private overlay applied: $(basename "$overlay")"
+  done
+  [ "$overlay_applied" -eq 1 ] || echo "  overlay directory present but empty: $overlay_dir"
+else
+  echo "  no private overlay — contributor-neutral git identity"
+fi
 
 # 3. Wire gh in as git's credential helper for github.com HTTPS, so that
 # `git fetch`/`clone` of private repos reuses the gh token. We set this

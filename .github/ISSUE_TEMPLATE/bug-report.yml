@@ -1,0 +1,17 @@
+name: Bug report
+description: Report a reproducible problem in Workshop.
+title: "bug: "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Include the command, expected behavior, and actual output.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Workshop version
+      description: Tag or commit used by the consuming project.
+    validations:
+      required: true

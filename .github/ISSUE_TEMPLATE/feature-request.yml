@@ -1,0 +1,11 @@
+name: Feature request
+description: Propose a focused improvement to Workshop.
+title: "feature: "
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Problem and proposed outcome
+      description: Describe the user need rather than only an implementation.
+    validations:
+      required: true

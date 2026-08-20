@@ -24,4 +24,4 @@
 <!-- Links to related documentation. Use relative paths. Include a short description
      after the em dash. -->
 
-- [Related doc](../path/to/doc.md) — Description
+- `../path/to/doc.md` — Related document description

@@ -1,0 +1,3 @@
+@AGENTS.md
+@docs/signal-hygiene.md
+@docs/definition-of-done.md

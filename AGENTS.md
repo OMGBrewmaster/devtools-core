@@ -1,24 +1,36 @@
 # AGENTS.md — Workshop
 
-What this repository is, how to use it from any AI coding harness, and what it deliberately does not contain. Read this if you found the repository on its own or are working in a project that mounts it as a submodule; the repository's `README.md` covers the generated-repository mechanics and versioning, this file is the harness-facing orientation.
+Workshop is the public home for shared agent skills, tooling, and documentation
+standards. Read this when contributing here or using Workshop as a submodule;
+the generated-mirror warning remains in force until the private cutover is made.
 
-## What this is
+## Current source of truth
 
-Workshop is the public publish channel for the safe-to-share subset of `OMGBrews/devtools` (private): shared agent skills, documentation standards, and tooling for task management and documentation review, generated from the upstream repo on every change there and republished on a daily schedule so a publish that never ran cannot leave this copy behind indefinitely. Nothing here is edited by hand — anything committed directly is overwritten by the next publish (see `README.md`).
+Workshop is generated from a reviewed public subset of a private upstream. Do
+not submit direct code changes or pull requests yet: the next upstream publish
+would overwrite them. Report issues here and follow the support policy in
+[SUPPORT.md](SUPPORT.md); maintainers will route work through the current
+source of truth until the cutover formally changes this policy.
 
-## How a project uses it
+## Working in a project that vendors Workshop
 
-- **Vendor the skills** — mount the repo as a submodule (conventionally at `workshop/`) and link each skill you want into `.agents/skills/`, the [Agent Skills](https://agentskills.io/specification) discovery path, one symlink per skill. Claude Code additionally needs a per-skill bridge in `.claude/skills/`; both surfaces follow the standard, [`docs/harness-agnostic-repos.md`](docs/harness-agnostic-repos.md).
-- **Run the conformance gate** — `bash Tools/check-agent-surfaces.sh <repo-root>` asserts checks 1–9 of the harness-agnostic standard against your own repo root (the argument is required; a default would audit the wrong tree).
-- **Read the standards** — `docs/signal-hygiene.md` and `docs/definition-of-done.md` are the standing-rule pair the skills enforce, and `docs/harness-agnostic-repos.md` is the conformance standard itself.
-- **Pin a version** — the repo is pinned by submodule commit, and tags are the stable versions to pin. See the README's "Pinning a version" section.
+- Link selected skills from `workshop/.agents/skills/` into a project's
+  `.agents/skills/`; `bash workshop/Tools/sync-skill-symlinks.sh .` maintains
+  both the canonical surface and the Claude bridge.
+- Read [docs/signal-hygiene.md](docs/signal-hygiene.md) and
+  [docs/definition-of-done.md](docs/definition-of-done.md) before claiming a
+  check or task complete.
+- The repository's own public gates are declared in
+  [docs/work/definition-of-done.md](docs/work/definition-of-done.md).
 
-## What it deliberately lacks
+## Future direct contribution
 
-- **No instruction files of its own beyond this one.** The upstream repo's `AGENTS.md`/`CLAUDE.md` describe contributing *to devtools* and stay unpublished; this file is what a consumer of the mirror needs.
-- **No `CLAUDE.md` bridge** — the mirror has no Claude-specific content, and the standard forbids a bridge that only redirects.
-- **No task documents, no kaizen journal** — those live per project, not in shared tooling.
+The forthcoming cutover will replace this generated-repository warning with a
+normal contribution workflow. [CONTRIBUTING.md](CONTRIBUTING.md),
+[SECURITY.md](SECURITY.md), [SUPPORT.md](SUPPORT.md), and
+[CHANGELOG.md](CHANGELOG.md) already define the public policies that will apply
+then; they do not authorize hand edits before the cutover.
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — see [LICENSE](LICENSE).
