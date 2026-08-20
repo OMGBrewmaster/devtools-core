@@ -37,6 +37,11 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes and
 [docs/work/definition-of-done.md](docs/work/definition-of-done.md) for the
 local check contract.
 
+## Cutover record
+
+[docs/source-of-truth-cutover.md](docs/source-of-truth-cutover.md) records the
+transition from the final generated payload to the public source of truth.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
