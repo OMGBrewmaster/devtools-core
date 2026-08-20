@@ -28,10 +28,12 @@ security, changelog, agent, and definition-of-done guidance authoritative.
 ## Public enforcement
 
 - Private vulnerability reporting is enabled for Workshop.
-- Ruleset [`21099180`](https://github.com/OMGBrewmaster/workshop/rules/21099180)
-  targets the default branch, is active, has no bypass actors, requires status
-  context `check`, and requires that check to cover the latest pull-request
-  code. GitHub displays that context as `Workshop checks / check`.
+- Ruleset [`main requires Workshop checks` (21099180)](https://github.com/OMGBrewmaster/workshop/rules/21099180)
+  is active on `branch` refs whose include list is `~DEFAULT_BRANCH` and whose
+  exclude list is empty. Its bypass-actor list is empty (`current_user_can_bypass`
+  is `never`). Its sole rule requires status context `check`, with strict
+  latest-code checking enabled and `do_not_enforce_on_create: false`. GitHub
+  displays that context as `Workshop checks / check`.
 
 ## Pull-request proof
 
