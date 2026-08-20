@@ -35,7 +35,8 @@ security, changelog, agent, and definition-of-done guidance authoritative.
 
 ## Pull-request proof
 
-The first red proof intentionally includes a
-[missing validation target](red-validation-target.md). The required public
-check must fail and the ruleset must refuse that pull request before this record
-is repaired and merged green.
+The deliberate missing-link validation produced a red
+[`Workshop checks` run](https://github.com/OMGBrewmaster/workshop/actions/runs/32388227983).
+An ordinary merge attempt was refused because the base-branch policy prohibited
+the merge. This repaired record is subject to the same required `check` context
+and merges only after that check is green.
