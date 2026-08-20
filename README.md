@@ -1,16 +1,15 @@
 # Workshop
 
 Workshop is the public distribution of shared agent skills, tooling, and
-documentation standards. It is ready to be used and validated as a standalone
-repository; until the source-of-truth cutover, its contents remain generated.
+documentation standards. It is the hand-authored source of truth and is ready
+to be used and maintained as a standalone repository.
 
-## Status during the cutover transition
+## Contributing
 
-The private upstream currently publishes this repository. Do not send a pull
-request or edit files directly: a publish would overwrite that work. You may
-open an issue using the templates here; [SUPPORT.md](SUPPORT.md) explains where
-to ask for help. The cutover will make the normal workflow described in
-[CONTRIBUTING.md](CONTRIBUTING.md) authoritative.
+Open a focused pull request after running `make check` from a standalone clone.
+[CONTRIBUTING.md](CONTRIBUTING.md) describes the workflow, and
+[SUPPORT.md](SUPPORT.md) explains where to ask for help or report a security
+issue.
 
 ## Use in another project
 

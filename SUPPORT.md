@@ -8,6 +8,4 @@ forms so maintainers receive the environment, expected behavior, and scope
 needed to triage a report. For a suspected vulnerability, follow
 [SECURITY.md](SECURITY.md) rather than creating a public issue.
 
-During the generated-repository transition, issues are welcome but pull
-requests are not. After the source-of-truth cutover, the contribution process
-in [CONTRIBUTING.md](CONTRIBUTING.md) applies.
+Pull requests follow the process in [CONTRIBUTING.md](CONTRIBUTING.md).

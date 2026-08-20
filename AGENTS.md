@@ -1,16 +1,14 @@
 # AGENTS.md — Workshop
 
 Workshop is the public home for shared agent skills, tooling, and documentation
-standards. Read this when contributing here or using Workshop as a submodule;
-the generated-mirror warning remains in force until the private cutover is made.
+standards. Read this when contributing here or using Workshop as a submodule.
 
 ## Current source of truth
 
-Workshop is generated from a reviewed public subset of a private upstream. Do
-not submit direct code changes or pull requests yet: the next upstream publish
-would overwrite them. Report issues here and follow the support policy in
-[SUPPORT.md](SUPPORT.md); maintainers will route work through the current
-source of truth until the cutover formally changes this policy.
+Workshop is the hand-authored source of truth. Contributions follow
+[CONTRIBUTING.md](CONTRIBUTING.md), issues follow [SUPPORT.md](SUPPORT.md),
+and every change must satisfy the public gates in
+[docs/work/definition-of-done.md](docs/work/definition-of-done.md).
 
 ## Working in a project that vendors Workshop
 
@@ -22,14 +20,6 @@ source of truth until the cutover formally changes this policy.
   check or task complete.
 - The repository's own public gates are declared in
   [docs/work/definition-of-done.md](docs/work/definition-of-done.md).
-
-## Future direct contribution
-
-The forthcoming cutover will replace this generated-repository warning with a
-normal contribution workflow. [CONTRIBUTING.md](CONTRIBUTING.md),
-[SECURITY.md](SECURITY.md), [SUPPORT.md](SUPPORT.md), and
-[CHANGELOG.md](CHANGELOG.md) already define the public policies that will apply
-then; they do not authorize hand edits before the cutover.
 
 ## License
 

@@ -6,10 +6,9 @@ report could expose users to harm.
 
 ## Reporting a vulnerability
 
-Until GitHub private vulnerability reporting is enabled during the cutover,
-contact the repository maintainers privately through the contact route in
-[SUPPORT.md](SUPPORT.md). Include affected files, a minimal reproduction, and
-any safe mitigation you know. Do not include exploit details in a public issue.
+Use GitHub's private vulnerability-reporting route for this repository. Include
+affected files, a minimal reproduction, and any safe mitigation you know. Do
+not include exploit details in a public issue.
 
 Maintainers acknowledge the report, assess impact, and coordinate disclosure
 and a fix without promising a response-time target.

@@ -5,8 +5,8 @@ they create a manually initiated milestone tag or GitHub Release.
 
 ## Unreleased
 
-- The standalone contribution, support, security, release-validation, and
-  quality-gate surfaces are prepared for the source-of-truth cutover.
+- Workshop is now the hand-authored source of truth; public contributions use
+  the pull-request workflow and private vulnerability reporting.
 
 ## Release policy
 
