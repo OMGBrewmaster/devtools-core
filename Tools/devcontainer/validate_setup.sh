@@ -69,6 +69,41 @@ check "Git LFS process filter" git config --global filter.lfs.process
 # silently blank rather than erroring visibly.
 check "jq present (status line depends on it)" command -v jq
 
+# --- Identity, on new-shape images only ---------------------------------------------
+# A container with no identity cannot commit, and the way that is normally discovered is
+# the first refused commit, hours in, with a message that names none of this.
+#
+# Gated on ~/.config/git/config the same way the harness checks are gated on the
+# manifest, and for the same two-clocks reason: this script runs live off the mounted
+# clone at every container start, while the arrangement that makes identity arrive is
+# written at image BUILD. That file's presence is the baked marker of a build that left
+# ~/.gitconfig free for the host copy. An older image, whose build occupied ~/.gitconfig,
+# cannot satisfy this check by any action taken inside it — asserting it there would go
+# red across the fleet for a rebuild nobody has done.
+#
+# --global scope, not unscoped: a repo-local identity — the hand-configured workaround
+# people reach for when a container comes up anonymous — would satisfy an unscoped read
+# in exactly the no-inheritance state this exists to catch.
+if [ -f "$HOME/.config/git/config" ]; then
+    identity_name="$(git config --global --get user.name 2>/dev/null || true)"
+    identity_email="$(git config --global --get user.email 2>/dev/null || true)"
+    if [ -n "$identity_name" ] && [ -n "$identity_email" ]; then
+        echo "  OK: git identity present in global scope ($identity_email)"
+    else
+        echo "  FAIL: no git user.name/user.email in global scope — this container cannot commit"
+        echo "        A container gets its identity from the machine it runs on: the Dev"
+        echo "        Containers extension copies the host's ~/.gitconfig in when you attach."
+        echo "        This kit keeps its own settings in ~/.config/git/config precisely so"
+        echo "        ~/.gitconfig is free for that copy to land in. An empty identity here"
+        echo "        means the copy did not happen — attached by a client that does not do"
+        echo "        it, dev.containers.copyGitConfig turned off, or a host with no identity"
+        echo "        of its own. Set it on the host and reattach, or set it here directly:"
+        echo "          git config --global user.name  \"Your Name\""
+        echo "          git config --global user.email \"you@example.com\""
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
 # --- Per harness, from the baked manifest ------------------------------------------
 validate_claude() {
     check "Claude settings exist" test -f "$HOME/.claude/settings.json"

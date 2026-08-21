@@ -15,7 +15,8 @@
 #
 # Configures:
 #   - Git LFS filter config (global, since no .git dir at build time)
-#   - Git config (autocrlf, safe.directory, user identity, bind-mount stat handling)
+#   - Git config (autocrlf, safe.directory, bind-mount stat handling) in the XDG
+#     global file, leaving ~/.gitconfig free for the host copy (section 0)
 #   - gh as git's credential helper for github.com HTTPS
 #   - Volume-workspace auto-populate shell hook
 #   - Every harness-*.sh in this directory (Claude Code, Oh My Pi, Codex)
@@ -29,6 +30,40 @@ BUILD_DIR="$(cd "$(dirname "$SETUP_SELF")" && pwd)"
 source "$BUILD_DIR/lib.sh"
 
 echo "=== Devcontainer setup ==="
+
+# 0. Where this script's git settings go, and why not ~/.gitconfig.
+#
+# Everything below writes with `git config --global`, and the global file is
+# redirected here to the XDG path. The reason is identity. A container learns who
+# you are from the Dev Containers extension, which copies the HOST's ~/.gitconfig
+# in on attach — and it declines to populate a ~/.gitconfig that already exists.
+# A kit that wrote its settings there at image-build time left that copy nowhere
+# to land, so containers came up with no user.name and no user.email and could
+# not commit until someone configured them by hand.
+#
+# So the kit's settings live in ~/.config/git/config and ~/.gitconfig is left
+# absent for the host copy. Both are global scope; git reads the XDG file first
+# and ~/.gitconfig second, so on any key set in both, the HOST wins. That is the
+# intended precedence — your machine's git preferences beat the kit's defaults —
+# and core.checkStat / core.trustctime (section 2) are the two worth knowing
+# about if a host gitconfig ever carries them.
+#
+# GIT_CONFIG_GLOBAL is set explicitly rather than leaning on git's implicit rule
+# (the XDG file is the write target only while ~/.gitconfig is absent) because
+# this script is documented as safe to re-run live inside an attached container,
+# where ~/.gitconfig DOES exist — the extension writes a credential helper into
+# it on attach — and the implicit rule would put the kit's settings straight back
+# into the file this arrangement keeps clear. The export dies with the script.
+mkdir -p "$HOME/.config/git"
+export GIT_CONFIG_GLOBAL="$HOME/.config/git/config"
+
+# Recorded now, asserted after the last write (section 3): this script must never
+# be the thing that creates ~/.gitconfig.
+gitconfig_existed=0
+if [ -e "$HOME/.gitconfig" ]; then
+    gitconfig_existed=1
+fi
+echo "  git config target: $GIT_CONFIG_GLOBAL"
 
 # 1. Git LFS filter config (equivalent to `git lfs install --global`)
 git config --global filter.lfs.clean "git-lfs clean -- %f"
@@ -96,6 +131,27 @@ fi
 git config --global --replace-all 'credential.https://github.com.helper' '!gh auth git-credential'
 git config --global --replace-all 'credential.https://gist.github.com.helper' '!gh auth git-credential'
 echo "  gh credential helper wired for github.com"
+
+# 3b. The inheritance guarantee, asserted rather than assumed. An image whose
+# build leaves a ~/.gitconfig behind is an image the host copy will skip, which
+# is the whole failure section 0 exists to prevent — and it fails silently, at
+# the first refused commit, in someone else's container weeks later. Nothing in
+# the kit today can trip this: every write above goes through GIT_CONFIG_GLOBAL,
+# sourced overlays included (they run in-process). It is here for the future edit
+# that writes outside the export's reach — an explicit `--file ~/.gitconfig`, or
+# a script run after the export goes out of scope.
+#
+# Only a build-time run can fail it. A live re-run inside an attached container
+# finds ~/.gitconfig already present (the extension put a credential helper
+# there) and is deliberately left alone.
+if [ "$gitconfig_existed" -eq 0 ] && [ -e "$HOME/.gitconfig" ]; then
+    echo "ERROR: this setup run created $HOME/.gitconfig, which must stay absent so" >&2
+    echo "       the Dev Containers host-gitconfig copy has somewhere to land on" >&2
+    echo "       attach. Something wrote outside GIT_CONFIG_GLOBAL — an explicit" >&2
+    echo "       'git config --file', or a script that ran after the export in" >&2
+    echo "       section 0 went out of scope. Route that write through --global." >&2
+    exit 1
+fi
 
 # 4. Volume-workspace auto-populate on first interactive shell. Two reasons this
 # hangs off the shell rather than devcontainer lifecycle hooks: Windsurf/Devin's
