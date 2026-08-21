@@ -2,7 +2,7 @@
 # docs-only-diff.sh — is the committed diff from <base> to HEAD confined to this
 # repo's declared prose surface?
 #
-# Usage: bash devtools/Tools/docs-only-diff.sh <base-ref-or-sha>   (from the repo root)
+# Usage: bash workshop/Tools/docs-only-diff.sh <base-ref-or-sha>   (from the repo root)
 #
 # Exit 0  -> docs-only. Every changed path is inside the surface this repo declares,
 #            and the diff is non-empty. The repo's expensive gates do not read those

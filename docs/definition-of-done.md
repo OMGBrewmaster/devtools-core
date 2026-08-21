@@ -23,7 +23,7 @@ breaks links in files the diff never touched.
 
 Do not judge that by eye. Where a repo declares a prose surface — a `DOCS-ONLY` block in
 its `definition-of-done.md`, listing paths no gate there reads — ask the predicate
-instead: `bash devtools/Tools/docs-only-diff.sh <base-sha>`. Exit 0 takes the docs lane;
+instead: `bash workshop/Tools/docs-only-diff.sh <base-sha>`. Exit 0 takes the docs lane;
 exit 1 means run the gates; exit 2 means *cannot decide*, which counts as 1. A repo with
 no declared surface has no fast lane, and that is an answer too.
 

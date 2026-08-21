@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests for Tools/check-agent-surfaces.sh — the gate that mechanizes checks 1-9
-# and 13 of devtools/docs/harness-agnostic-repos.md.
+# and 13 of workshop/docs/harness-agnostic-repos.md.
 #
 # The headline case is `nothing was done`: a repo with a lone CLAUDE.md and its
 # skills authored under .claude/skills/ — exactly the shape the standard exists to

@@ -2,7 +2,7 @@
 # check-agent-surfaces.sh — does this repo still satisfy the harness-agnostic
 # conformance checklist?
 #
-# Mechanizes checks 1-9 and 13 of devtools/docs/harness-agnostic-repos.md
+# Mechanizes checks 1-9 and 13 of workshop/docs/harness-agnostic-repos.md
 # ("Conformance checklist"). Checks 10 (bootstrap reachable as a plain command)
 # and 11 (root sentinels probe AGENTS.md) are deliberately absent: both are
 # judgments about whether a script's *body* does the right thing, and the
@@ -469,7 +469,7 @@ if [ "$skips" -gt 0 ]; then
 fi
 if [ "$failures" -ne 0 ]; then
     echo "agent surfaces: $failures check(s) failed — see the FAIL lines above." >&2
-    echo "The checklist and the rationale for each check: devtools/docs/harness-agnostic-repos.md" >&2
+    echo "The checklist and the rationale for each check: workshop/docs/harness-agnostic-repos.md" >&2
     exit 1
 fi
 echo "agent surfaces: all evaluated checks passed."
