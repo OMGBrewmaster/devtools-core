@@ -7,6 +7,9 @@ they create a manually initiated milestone tag or GitHub Release.
 
 - Workshop is now the hand-authored source of truth; public contributions use
   the pull-request workflow and private vulnerability reporting.
+- `Tools/devcontainer/` publishes a project-neutral `install-packages.sh` and a
+  mount-agnostic `post_install.sh`, so a consuming image can source its whole
+  container layer from Workshop instead of keeping a private copy.
 
 ## Release policy
 
