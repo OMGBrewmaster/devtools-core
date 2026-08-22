@@ -97,29 +97,34 @@ git config --global core.checkStat minimal
 git config --global core.trustctime false
 echo "  Git config set"
 
-# 2b. Optional private overlay. build/ is public — the mirror publishes it and
-# a contributor's build must stay anonymous — so maintainer identity (and any
-# other personal default) lives in a sibling directory that only the PRIVATE
-# directory-copy build carries into the image. The private Dockerfile COPYs
-# devtools/Tools/devcontainer/overlay to /tmp/devcontainer-overlay (and sets
-# DEVCONTAINER_OVERLAY_DIR); a live re-run from a private checkout finds the
-# same directory as ../overlay beside this file. A public build has neither,
-# and skips the block: no overlay file, no identity.
+# 2b. Optional private overlay. build/ is public — a contributor's build must
+# stay anonymous — so personal defaults live in a sibling directory that only
+# the PRIVATE directory-copy build carries into the image. A private Dockerfile
+# COPYs <checkout>/Tools/devcontainer/overlay to /tmp/devcontainer-overlay (and
+# sets DEVCONTAINER_OVERLAY_DIR); a live re-run from a private checkout finds
+# the same directory as ../overlay beside this file. A public build has neither
+# and skips the block.
+#
+# Git identity is NOT one of those defaults, in a private build either. Section
+# 0 keeps ~/.gitconfig free so the Dev Containers extension can copy the HOST's
+# identity in on attach; an overlay is sourced in-process here, so a
+# `git config --global user.email` in one lands in the same XDG file every write
+# above goes to, and on a host that carries no identity of its own that baked
+# value is what every commit gets attributed to. Let the host supply it.
 overlay_dir="${DEVCONTAINER_OVERLAY_DIR:-$BUILD_DIR/../overlay}"
 if [ -d "$overlay_dir" ]; then
   overlay_applied=0
   for overlay in "$overlay_dir"/*.sh; do
     [ -f "$overlay" ] || continue
-    # shellcheck source=Tools/devcontainer/overlay/user-identity.sh
     # shellcheck disable=SC1090  # the overlay path is resolved at runtime
-    # shellcheck disable=SC1091 # The optional private identity overlay is not public.
+    # shellcheck disable=SC1091 # The optional private overlay is not public.
     source "$overlay"
     overlay_applied=1
     echo "  private overlay applied: $(basename "$overlay")"
   done
   [ "$overlay_applied" -eq 1 ] || echo "  overlay directory present but empty: $overlay_dir"
 else
-  echo "  no private overlay — contributor-neutral git identity"
+  echo "  no private overlay — public defaults only"
 fi
 
 # 3. Wire gh in as git's credential helper for github.com HTTPS, so that
