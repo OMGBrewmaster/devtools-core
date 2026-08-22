@@ -20,6 +20,10 @@ and every change must satisfy the public gates in
   check or task complete.
 - The repository's own public gates are declared in
   [docs/work/definition-of-done.md](docs/work/definition-of-done.md).
+- The superproject that tracks this repository's `main`, and what its pointer owes
+  when a change lands here, are declared in
+  [docs/work/consumed-by.md](docs/work/consumed-by.md). Every other consumer pins
+  this repository, so nothing reaches it until that repo commits a new pointer.
 
 ## License
 
