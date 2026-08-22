@@ -18,6 +18,9 @@
 #      mirror consumer, its pre-rename placeholder before 2026-08) must resolve
 #      the same way, with both link targets naming THAT directory. Fails against
 #      the pre-discovery script, whose SRC_DIR was the hardcoded devtools/ literal.
+#   8. names the MOUNT, not the tree, when the tree is nested inside a wrapper
+#      the consumer mounts. A consumer can only traverse the directory it
+#      mounted; a tree one level deeper is the wrapper's business.
 set -euo pipefail
 
 DEVTOOLS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -152,3 +155,68 @@ out="$(bash "$PROJ5/workshop/Tools/sync-skill-symlinks.sh" "$PROJ5" 2>&1)" \
 [ -r "$PROJ5/.agents/skills/beta/SKILL.md" ] || fail "beta unreadable through the workshop canonical link"
 [ -r "$PROJ5/.claude/skills/beta/SKILL.md" ] || fail "beta unreadable through the workshop bridge"
 echo "ok 7 - alternate mount name (workshop) discovered; fixture mount derived from the checkout"
+
+# --- 8. a tree NESTED inside the mounted directory --------------------------
+# The consuming repo mounts `wrapper/`; this tree is a submodule one level
+# further down at `wrapper/nested/`. A consumer's relative link can only
+# traverse what it mounted, so every target must name `wrapper`, and the roster
+# must come from the wrapper's surface — which carries links into the nested
+# tree PLUS whatever the wrapper owns outright.
+#
+# Against the pre-fix script this fails by writing `../../nested/...` from a
+# root with no `nested/` directory. That mode is worth stating precisely,
+# because it is not a visible error: sync_surface creates the dangling links,
+# reports "2 linked", then removes them itself in its own stale sweep (they
+# match the shared-skill target shape and do not resolve), and the verification
+# pass skips what is no longer a symlink. The run exits 0 having emptied both
+# surfaces — so this test asserts the entry COUNT, not just the target string:
+# an assertion on targets alone passes vacuously over a directory with no
+# entries left to check.
+PROJ6="$TMP/proj6"
+mkdir -p "$PROJ6/.claude" "$PROJ6/wrapper/nested/Tools/hooks" "$PROJ6/wrapper/.agents/skills"
+git -C "$PROJ6" init --quiet    # core.hooksPath is asserted below
+make_skill "$PROJ6/wrapper/nested/.agents/skills/alpha"
+make_skill "$PROJ6/wrapper/nested/.agents/skills/beta"
+make_skill "$PROJ6/wrapper/.agents/skills/wrapper-owned"     # real, not from the tree
+ln -s "../../nested/.agents/skills/alpha" "$PROJ6/wrapper/.agents/skills/alpha"
+ln -s "../../nested/.agents/skills/beta" "$PROJ6/wrapper/.agents/skills/beta"
+cp "$SYNC" "$PROJ6/wrapper/nested/Tools/sync-skill-symlinks.sh"
+cp "$DEVTOOLS_ROOT/Tools/check-skill-roster-freshness.sh" "$PROJ6/wrapper/nested/Tools/"
+: > "$PROJ6/wrapper/nested/Tools/hooks/post-merge"
+
+out="$(bash "$PROJ6/wrapper/nested/Tools/sync-skill-symlinks.sh" "$PROJ6" 2>&1)" \
+  || fail "sync failed for a nested tree: $out"
+
+# The count assertion that a self-emptying run cannot satisfy.
+for surface in .agents/skills .claude/skills; do
+  n="$(find "$PROJ6/$surface" -mindepth 1 -maxdepth 1 | wc -l)"
+  [ "$n" -eq 3 ] || fail "$surface holds $n entries, expected 3 (alpha, beta, wrapper-owned): $out"
+done
+
+# Every target names the mount the consumer has, never the nested tree.
+for name in alpha beta wrapper-owned; do
+  target="$(readlink "$PROJ6/.agents/skills/$name")"
+  [ "$target" = "../../wrapper/.agents/skills/$name" ] \
+    || fail "canonical $name names '$target', expected ../../wrapper/.agents/skills/$name"
+  [ -r "$PROJ6/.agents/skills/$name/SKILL.md" ] \
+    || fail "$name unreadable through the canonical link into the wrapper"
+  [ -r "$PROJ6/.claude/skills/$name/SKILL.md" ] \
+    || fail "$name unreadable through the bridge into the wrapper"
+done
+
+# One prefix for both kinds: the consumer cannot tell which skills the wrapper
+# sources from the nested tree and which it owns, and must not have to.
+[ "$(readlink "$PROJ6/.agents/skills/alpha")" = "$(dirname "$(readlink "$PROJ6/.agents/skills/wrapper-owned")")/alpha" ] \
+  || fail "shared and wrapper-owned skills were linked with different prefixes"
+
+# core.hooksPath names the TREE — Tools/hooks/ is a real directory there and the
+# wrapper does not restage it at its own root.
+hp="$(git -C "$PROJ6" config core.hooksPath)"
+[ "$hp" = "wrapper/nested/Tools/hooks" ] \
+  || fail "core.hooksPath is '$hp', expected wrapper/nested/Tools/hooks"
+
+out="$(bash "$PROJ6/wrapper/nested/Tools/sync-skill-symlinks.sh" "$PROJ6" 2>&1)" \
+  || fail "second nested run failed: $out"
+[ "$(grep -c '0 linked, 3 already current' <<< "$out")" = 2 ] \
+  || fail "nested run not idempotent on both surfaces: $out"
+echo "ok 8 - a nested tree links through the mount, not the tree, and is idempotent"

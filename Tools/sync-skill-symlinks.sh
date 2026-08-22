@@ -19,20 +19,26 @@
 # so both are written, always, and the canonical one is written first — the
 # bridge points at it.
 #
-# The devtools tree is found by discovery, not by name: this script ships inside
-# the tree it looks for (at <mount>/Tools/), so the script's own physical
-# location names the mount. That works for the upstream layout (devtools/) and
-# for any consumer mounting the tree under another name (workshop/ and
-# beyond). When the script's own tree lives OUTSIDE the target repo — the
-# propagation case, where a fleet copy syncs another checkout — the mount's
-# basename is re-derived at the repo root. The one derived value feeds both the
-# source directory and the link targets, so the two can never disagree.
+# The tree is found by discovery, not by name: this script ships inside the tree
+# it looks for (at <tree>/Tools/), so the script's own physical location finds
+# it. That works for the upstream layout and for any consumer mounting the tree
+# under another name (workshop/ and beyond). When the script's own tree lives
+# OUTSIDE the target repo — the propagation case, where a fleet copy syncs
+# another checkout — the name is re-derived at the repo root.
+#
+# The tree and the MOUNT are not always the same directory. A consumer mounts a
+# directory at its own root, and that directory is the only one its links may
+# name; a tree nested deeper inside it — a private wrapper that nests this
+# repository as a submodule — is the wrapper's business, not the consumer's. So
+# the mount is the TOP-LEVEL directory under the repo root, and the tree may sit
+# anywhere beneath it. The one derived mount feeds both the source directory and
+# the link targets, so the two can never disagree.
 #
 # Usage:
 #   sync-skill-symlinks.sh [REPO_ROOT]
 #
-#   REPO_ROOT  Directory containing .claude/ (or .agents/) and the devtools
-#              tree (default: cwd).
+#   REPO_ROOT  Directory containing .claude/ (or .agents/) and the mounted
+#              shared tree (default: cwd).
 #
 # Behaviour, applied to each surface independently:
 #   - Converts a directory-level symlink into a real directory.
@@ -62,28 +68,45 @@ err() { printf 'error: %s\n' "$1" >&2; exit 1; }
 # may be relative or reach the repo through a symlink.
 REPO_ROOT="$(cd "$REPO_ROOT" && pwd -P)"
 
-# Resolve the mount. Step 1, self-location: the script ships at
-# <mount>/Tools/sync-skill-symlinks.sh, so the parent of its own physical
-# directory is the mount — whatever it is named — when that mount lies inside
-# REPO_ROOT. Step 2, basename fallback: a script invoked from some OTHER
-# checkout (fleet propagation) has its mount outside the target repo, so re-
-# derive the name at the repo root — `devtools` for a fleet sweep, `workshop`
-# for the mirror consumer. Step 3: fail, naming every path checked.
+# Resolve the tree, then the mount. Step 1, self-location: the script ships at
+# <tree>/Tools/sync-skill-symlinks.sh, so the parent of its own physical
+# directory is the tree — whatever it is named — when it lies inside REPO_ROOT.
+# Step 2, basename fallback: a script invoked from some OTHER checkout (fleet
+# propagation) has its tree outside the target repo, so re-derive the name at
+# the repo root. Step 3: fail, naming every path checked.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 SCRIPT_MOUNT="$(dirname "$SCRIPT_DIR")"
 
+# TREE_REL is where the tree sits relative to the repo root — one component for
+# a directly mounted tree, two for a tree nested inside a wrapper. MOUNT_DIR is
+# its FIRST component: the directory the consumer actually mounted, and so the
+# only one its relative links may traverse. Taking the tree itself here is what
+# used to write `../../<tree-basename>/...` from a consuming root that has no
+# such directory — links that dangle, are swept as stale by step 3 of
+# sync_surface, and leave the surface empty while the run reports success.
 case "$SCRIPT_MOUNT" in
-  "$REPO_ROOT"|"$REPO_ROOT"/*) MOUNT_DIR="$SCRIPT_MOUNT" ;;
-  *) MOUNT_DIR="$REPO_ROOT/$(basename "$SCRIPT_MOUNT")" ;;
+  "$REPO_ROOT")
+    TREE_REL=""; MOUNT_DIR="$REPO_ROOT" ;;
+  "$REPO_ROOT"/*)
+    TREE_REL="${SCRIPT_MOUNT#"$REPO_ROOT"/}"
+    MOUNT_DIR="$REPO_ROOT/${TREE_REL%%/*}" ;;
+  *)
+    TREE_REL="$(basename "$SCRIPT_MOUNT")"
+    MOUNT_DIR="$REPO_ROOT/$TREE_REL" ;;
 esac
 
 [ "$MOUNT_DIR" = "$REPO_ROOT" ] \
-  && err "refusing to run inside the devtools tree itself ($REPO_ROOT) — every shared skill would be linked onto itself; run this from the project repo that consumes the shared skills"
+  && err "refusing to run inside the shared tree itself ($REPO_ROOT) — every shared skill would be linked onto itself; run this from the project repo that consumes the shared skills"
 
+# The roster is read from the MOUNT, not from the tree. For a directly mounted
+# tree they are the same directory. For a wrapper that nests this repository,
+# the wrapper's own surface is the one the consumer links to — it carries the
+# shared skills as links into the nested tree plus any the wrapper owns
+# outright, and which is which is not the consumer's concern.
 SRC_DIR="$MOUNT_DIR/.agents/skills"
 MOUNT_NAME="$(basename "$MOUNT_DIR")"
 
-[ -d "$SRC_DIR" ] || err "no shared skills found — checked .agents/skills/ under '$SCRIPT_MOUNT' (the tree this script lives in) and '$REPO_ROOT/$MOUNT_NAME' (its basename at the repo root); the devtools tree is not present under either"
+[ -d "$SRC_DIR" ] || err "no shared skills found — checked .agents/skills/ under '$MOUNT_DIR' (the mount at the repo root) for a tree found at '$SCRIPT_MOUNT'; the shared skills are not present under either"
 
 dangling=0
 
@@ -177,8 +200,12 @@ sync_surface "$REPO_ROOT/.agents/skills" "../../$MOUNT_NAME/.agents/skills" "can
 sync_surface "$REPO_ROOT/.claude/skills" "../../.agents/skills" "Claude Code bridge"
 
 roster_changed
+# core.hooksPath names the TREE, not the mount: Tools/hooks/ is a real directory
+# in this repository, and a wrapper that nests it does not restage it at its own
+# root. TREE_REL is already repo-root-relative, which is the form the config key
+# wants, so no realpath is needed to produce it.
 if [ -f "$roster_check" ]; then
-  hooks_rel="$(realpath --relative-to="$REPO_ROOT" "$MOUNT_DIR" 2>/dev/null)/Tools/hooks"
+  hooks_rel="$TREE_REL/Tools/hooks"
   [ -d "$REPO_ROOT/$hooks_rel" ] && git -C "$REPO_ROOT" config core.hooksPath "$hooks_rel"
 fi
 
