@@ -56,7 +56,18 @@ jobs:
             exit 0
           esac
           git fetch --depth=1 origin "$prev_ref"
-          old="$(git rev-parse FETCH_HEAD:<SUBMODULE_PATH> 2>/dev/null || echo '')"
+          # --verify is load-bearing, not decoration. Without it `git rev-parse`
+          # ECHOES an argument it cannot resolve to stdout and then exits
+          # non-zero, so the substitution below captures the literal string
+          # "FETCH_HEAD:<SUBMODULE_PATH>" rather than the empty string the -z
+          # guard is watching for. The guard never fires, the literal falls
+          # through to the cat-file test, and the check reports
+          # "Previous pointer FETCH_HEAD:... is not on upstream" — a skip that
+          # reads like a considered one. That is monotonicity quietly ceasing to
+          # check, for any cause including a failed fetch. --verify suppresses
+          # the echo, so an unresolvable ref yields "" and takes the branch that
+          # says so.
+          old="$(git rev-parse --verify FETCH_HEAD:<SUBMODULE_PATH> 2>/dev/null || echo '')"
           if [ -z "$old" ]; then
             echo "Previous state has no <SUBMODULE_PATH> gitlink; skipping monotonicity check."
           elif ! git -C /tmp/upstream.git cat-file -e "$old" 2>/dev/null; then
